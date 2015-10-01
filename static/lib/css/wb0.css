@@ -1,0 +1,224 @@
+.toolbar { height: 33px; border: 1px solid gray; background: #ddd; z-index: 100;}
+#toolbar-top { position: absolute; left: 0; top: 0; right: 0; }
+#toolbar-bottom { position: absolute; left: 0; bottom: 0; right: 0; }
+#main { position:absolute; left: 0; right: 0; top: 33px; bottom: 33px; }
+
+body {
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+}
+
+.wb-ui-toolBar {
+    height: 33px;
+    width: 100%;
+    background: #666;
+    border: 1px solid black;
+    overflow: hidden;
+    background-image: -webkit-gradient(
+	linear,
+	left bottom,
+	left top,
+	color-stop(0.29, rgb(71,71,71)),
+	color-stop(0.91, rgb(151,151,156))
+    );
+    background-image: -moz-linear-gradient(
+	center bottom,
+	rgb(71,71,71) 29%,
+	rgb(151,151,156) 91%
+    );
+}
+
+.wb-ui-barItemLeft { position: relative; float: left; padding: 4px; z-index: 100; }
+.wb-ui-barItemLeft > div { display: inline-block; }
+
+.wb-ui-barItemRight { position: relative; float: right; padding: 4px; z-index: 100; }
+.wb-ui-barItemRight > div { display: inline-block; }
+
+.wb-ui-barTitle {
+    padding: 4px;
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+    font-size: 20px;
+    font-weight: bold;
+    position: absolute;
+    top: 0;	bottom: 0;
+    left: 0; right: 0;
+    text-align: center;
+    color: white;
+}
+
+.wb-ui-toolBar .wb-ui-button {
+    padding: 4px 8px 3px 8px;
+    /*
+      -moz-corner-radius: 3px;
+      -webkit-corner-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.5);
+      */
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    background: rgba(0,0,0,0.2);
+    color: white;
+    cursor: pointer;
+    min-width: 20px;
+}
+
+.wb-ui-toolBar .wb-ui-button:active {
+    background: none repeat scroll 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.wb-ui-segmentedControl {
+}
+
+.wb-ui-segmentedControl .wb-ui-segment {
+    padding-top: 5px;
+    display: inline-block;
+    padding: 5px 8px 3px 8px;
+    /*
+      -moz-corner-radius: 3px;
+      -webkit-corner-radius: 3px;
+      */
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    background: rgba(0,0,0,0.2);
+    color: white;
+    cursor: pointer;
+    min-width: 20px;
+    border: 1px solid black;
+    border-right: 0;
+}
+
+.wb-ui-segmentedControl .wb-ui-segment:active {
+    background: none repeat scroll 0 0 rgba(0, 0, 0, 0.5);
+}
+
+.sunken {
+    border-top: 1px solid black;
+    border-right: 1px solid white;
+    border-bottom: 1px solid white;
+    border-left: 1px solid black;
+    background: rgba(0,0,0,0.5);
+}
+
+.wb-ui-segmentedControl .selected {
+    background: rgba(0,0,0,0.5);
+}
+
+.wb-ui-segmentedControl .last {
+    border-right: 1px solid black;
+}
+
+.wb-ui-barButtonItem {
+    margin: 6px;
+    padding: 10px;
+    border: 1px solid black;
+    //	-moz-border-radius: 6px;
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+    font-size: 14px;
+}
+
+.wb-ui-label {
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+    font-size: 16px;
+}
+
+.wb-ui-button {
+    border: 1px solid black;
+    //	-moz-border-radius: 8px;
+}
+
+.wb-ui-scrollView {
+    position: absolute;
+    overflow: auto;
+}
+
+.wb-ui-textView {
+    position: absolute;
+    font-family: Helvetica Neue, Helvetica, Arial, sans;
+    font-size: 12px;
+}
+
+.wb-ui-screen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: blue;
+    overflow: hidden;
+    min-width: 768px;
+}
+
+.wb-ui-coverScreen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    overflow: hidden;
+}
+
+.wb-ui-window {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: gray;
+    overflow: hidden;
+}
+
+.wb-ui-dialog {
+    background: white;
+    position: absolute;
+    top: 33px;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+}
+
+.wb-ui-modal-form {
+    background: yellow;
+
+    position: absolute;
+    left: 50%;
+    top: 40px;
+    bottom: 40px;
+    width: 700px;
+    margin-left: -350px;
+    border: 1px solid black;
+    box-shadow: 2px 2px 3px gray;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+table.wb-ui-form th { text-align: right; };
+table.wb-ui-form td input[type="text"] {
+    width: 98%;
+}
+
+#wb-ui-modal-coverscreen {
+    z-index: 999;
+}
+
+#wb-ui-system-coverscreen {
+    z-index: 5000;
+}
+
+.left { float: left; }
+.right { float: right; }
+.center { text-align: center; }
+.rounded { -moz-border-radius: 10px; }
+.shaded { background: rgba(0,0,0,0.2); }
+.relief-right { border-right: 1px solid rgba(0,0,0,0.8); }
+.relief-left  { border-left:  1px solid rgba(255,255,255,0.8); }
+.inline div { display: inline; }
+
+#coverscreen {
+    z-index: 1000;
+}
+
+.wb-ui-buttonbar {
+    text-align: center;
+}
+
+.wb-ui-buttonbar .wb-ui-button {
+    display: inline-block;
+}

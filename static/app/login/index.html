@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+ <head>
+    <title>Nodes Login</title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="generator" content="Nodes alpha"/>
+    <link rel="top"  title="Top of the site" href="/"/>
+
+    <link rel="icon" type="image/png" href="/icon/applications/session.png"/>
+    <link rel="apple-touch-icon-precomposed" type="image/png" href="/icon/applications/session.png"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+
+    <!-- library stylesheets -->
+    <link rel="stylesheet" text="text/css" href="/lib/css/bootstrap.css"/>
+    <link rel="stylesheet" type="text/css" href="/lib/css/wb.css"/>
+    <link rel="stylesheet" type="text/css" href="/lib/css/animate.css"/>
+
+<style>
+body { background: gray; }
+
+#window {
+  background: url(/app/login/bg.jpg);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+}
+
+#loginBox {
+  background: #ddd;
+  border-width: 2px;
+  border-style: solid;
+  border-left-color:   #eee;
+  border-top-color:    #eee;
+  border-right-color:  #444;
+  border-bottom-color: #444;
+  box-shadow: 2px 2px 6px 3px rgba(0,0,0,0.7);
+}
+
+#loginBox {
+width: 480px;
+height: 320px;
+text-align: center;
+position: absolute;
+top: 50%; left: 50%;
+margin-left: -240px;
+margin-top: -160px;
+overflow: auto;
+}
+
+section {
+  margin: 1em;
+}
+
+form input {
+  text-align: center;
+}
+
+#uptime {
+  font-size: 12px;
+}
+
+</style>
+
+
+ </head>
+
+ <body>
+ <div id="screen" class="wbScreen">
+   <div id="window" class="wbWindow">
+     <div id="loginBox" style="display: none">
+       <div id="wb-login-form" class="wb-ui-form">
+	 <h2 id="title"><span id="hostname"></span> login</h2>
+	 <form name="login">
+	   <section>
+	     <div><input id="username" name="username" autofocus="on" type="text" autocapitalize="off" autocorrect="off" /></div>
+	   </section>
+	   <section>
+	     <div><input id="password" name="password" type="password"/></div>
+<!--	   <div class="wb-ui-button">Register</div> -->
+<!--           <div><button>login</button></div> -->
+	   </section>
+	 </form>
+	 <div>
+	   <section>
+	     <button id="buttonClear">Clear</button>
+	     <button id="buttonLogin">Login</button>
+	   </section>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-login-register-form" class="wb-ui-form">
+	 <h2>Create new account</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">Register</div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-login-lost-password-form" class="wb-ui-form">
+	 <h2>Lost password</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">Change password</div>
+	 </div>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">I lost my username</div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-login-lost-username-form" class="wb-ui-form">
+	 <h2>Lost username</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">Remind me</div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-login-passwd-form" class="wb-ui-form">
+	 <h2>Change password</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">Change password</div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-login-reset-passwd-form" class="wb-ui-form">
+	 <h2>Reset password</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">Set password</div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-login-activation-form" class="wb-ui-form">
+	 <h2>Account activated</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button">Continue</div>
+	   <div class="wb-ui-button">Set up</div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <div id="wb-logout-form" class="wb-ui-form">
+	 <h2>Logout</h2>
+	 <div class="wb-ui-buttonbar">
+	   <div class="wb-ui-button"><a href="/api/logout">Log out</a></div>
+	 </div>
+       </div> <!-- wb-ui-form -->
+
+       <section>
+	 <div id="wb-login-info">
+	 </div>
+       </section>
+
+       <section>
+	 <div id="uptime" style="
+				 position: absolute;
+				 bottom: 8px;
+				 left: 0; right: 0;
+				 "></div>
+       </section>
+     </div>
+   </div>
+ </div>
+ 
+ <!-- system alerts -->
+ <div id="wb-ui-system-coverscreen" class="wb-ui-coverScreen">
+ </div> <!-- #coverscreen -->
+
+ <script type="text/javascript" src="/lib/js/jquery-1.11.0.js"></script>
+<!-- <script type="text/javascript" src="/lib/js/jquery-ui.js"></script> -->
+ <script type="text/javascript" src="/lib/js/px.js"></script>
+<!-- <script type="text/javascript" src="/lib/js/sprintf.js"></script> -->
+ <script type="text/javascript" src="/lib/js/wb.js"></script>
+
+ <script type="text/javascript" src="login.js"></script>
+
+</body>
+</html>

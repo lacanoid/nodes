@@ -1,0 +1,92 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          nodes
+# Required-Start:    
+# Required-Stop:     
+# Should-Start:	     $syslog
+# Should-Stop:       $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Nodex HTTPS Server
+# Description:       Web based interface to *nix
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DESC="Nodes listener"
+NAME="netty"
+DAEMON="/usr/sbin/$NAME-ctl"
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+# Include daemon defaults if available.
+test -f /etc/default/nodes && . /etc/default/nodes
+export NETTY_PORT
+export NETTY_PORTMIN
+
+#
+#       Function that starts the daemon/service.
+#
+d_start() {
+    $DAEMON -c && return 0
+    $DAEMON -D
+}
+
+#
+#       Function that stops the daemon/service.
+#
+d_stop() {
+    if $DAEMON -c ; then
+       $DAEMON -k
+    fi
+}
+
+#
+#       Function that reload the config file for the daemon/service.
+#
+d_reload() {
+    $DAEMON -c && $DAEMON -r
+}
+
+#
+#       Function that check the status of the daemon/service.
+#
+d_status() {
+    $DAEMON -c && echo "$DESC is running" || echo "$DESC is not running"
+}
+
+case "$1" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        d_start
+        log_end_msg $?
+        ;;
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        d_stop
+        log_end_msg $?
+        ;;
+    reload|force-reload)
+        log_daemon_msg "Reloading services for $DESC" "$NAME"
+        d_reload
+        log_end_msg $?
+        ;;
+    restart)
+        log_daemon_msg "Restarting $DESC" "$NAME"
+        d_stop
+        d_start
+        log_end_msg $?
+        ;;
+    status)
+        d_status
+        ;;
+    *)
+        echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload|reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

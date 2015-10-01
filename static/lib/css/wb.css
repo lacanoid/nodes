@@ -1,0 +1,343 @@
+sup { vertical-align: inherit; position: relative; top: -0.5em; }
+sub { vertical-align: inherit; position: relative; top: 0.3em; }
+pre { text-align: left; }
+
+.wbScreen {
+    font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+}
+.wbWindow {
+    color: black;
+    border: 1px solid black;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+.wbWindow.wbStyleDialog {
+    padding: 10px;
+    display: inline-block;
+    min-width: 320px;
+    margins: auto;
+    max-width: 100%;
+}
+.wbWindow.wbStyleDialog h1 {
+    font-size: 144%;
+    line-heigth: 160%;
+    margin: 1em 0 1em;
+}
+.wbWindow.wbStyleDialog h2 {
+    font-size: 100%;
+    line-heigth: 120%;
+    margin: 1em 0 1em;
+}
+.wbWindow.wbStyleDialog > section {
+    margin: 12px 0;
+}
+.wbWindow.wbStyleDialog > section .wbButton {
+    min-width: 200px;
+    display: inline-block;
+    padding: 8px 8px;
+}
+.wbView { 
+  border: 0; margin: 0; padding: 0; 
+  box-sizing: border-box;
+}
+.wbView * { 
+  box-sizing: border-box;
+}
+.wbWidget { border: 1px transparent gray; }
+
+.wbViewController { 
+//    background: white; 
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    overflow: hidden;
+}
+
+.wbStateDebugLayout .wbViewController { 
+    border: 2px solid #fc0; 
+}
+
+.white { color: white !important; }
+.wbButton {
+  display: inline-block;
+  border: 1px solid black;
+  margin: 6px;
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+.wbButton:active {
+  background: rgba(0,0,0,0.5);
+}
+.wbListCell.wbStateSelected {
+  background: rgba(0,0,0,0.5);
+}
+
+.wbSpinner {
+    height: 40px;
+    width: 40px;
+    -webkit-animation: rotation .6s infinite linear;
+    -moz-animation: rotation .6s infinite linear;
+    -o-animation: rotation .6s infinite linear;
+    animation: rotation .6s infinite linear;
+    border: 6px solid gray;
+    border-radius: 100%;
+}
+
+.wbScreen {
+  border: 0px solid blue;
+  position: absolute;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  margin: 0; padding: 0;
+  background: gray;
+}
+
+.wbCoverView {
+  position: absolute;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  margin: 0; padding: 0;
+  background: rgba(0,0,0,0.3);
+  color: white;
+  z-index: 1000;
+}
+
+.wbToolbar {
+  height: 44px;
+  background: transparent;
+  border: 0px solid transparent;
+  vertical-align: middle;
+}
+
+.wbNavigationBar { 
+  position: absolute; left: 0; right: 0;
+  height: 44px;
+  background: #666;
+  border: 1px solid black;
+  overflow: hidden;
+  background-image: -webkit-gradient(
+    linear, left bottom, left top,
+    color-stop(0.29, rgb(71,71,71)),
+    color-stop(0.91, rgb(151,151,156))
+  );
+  background-image: -moz-linear-gradient(
+    center bottom,
+    rgb(71,71,71) 29%,
+    rgb(151,151,156) 91%
+  );  
+}
+
+.wbNavigationBar .wbButton i { line-height: 20px; }
+.wbNavigationBar .wbLabel > label {  font-weight: normal; } 
+.wbNavigationBar .wbLabel {  
+  font-size: 20px;
+  color: white;
+  border: 0;
+  line-height: 42px;
+}
+.wbNavigationBar .wbLabel { text-align: center; }
+
+.wbNavigationBar > .left  { position: absolute; left: 0; }
+.wbNavigationBar > .right { position: absolute; right: 0; }
+
+.wbNavigationController { }
+.wbNavigationController > .wbBox {
+  position: absolute;
+  top: 44px; left: 0; right: 0; bottom: 0;
+}
+
+.wbNavigationBar > .title { 
+    text-align: center;
+    color: white;
+}
+.wbNavigationBar > .title > label { 
+    font-weight: normal;
+    margin: 10px;    
+}
+
+.wbToolbar,
+.wbNavigationBar { 
+    display: block;
+    font-size: 20px;
+    line-height: 22px;
+    font-weight: normal;
+}
+
+.wbToolbar > .wbLabel,
+.wbNavigationBar > .wbLabel { 
+    display: inline-block; 
+    line-height: 22px;
+    font-size: 20px;
+    font-weight: normal;
+    margin: 6px;
+    padding: 2px;
+    border: 1 px solid black;
+    color: white;
+}
+
+.wbToolbar .wbButton,
+.wbNavigationBar .wbButton {
+  color: white;
+  font-size: 14px;
+  line-height: 20px;
+  min-width: 30px;
+  min-height: 30px;
+  text-align: center;
+  display: inline-block;
+}
+
+.wbToolbar .wbButton i,
+.wbNavigationBar .wbButton {
+  line-height: 20px;
+}
+
+.wbNavigationViewController .wbNavigationBar { top: 0;  }
+.wbNavigationViewController .wbToolbar { bottom: 0; }
+
+.wbScrollView   { overflow: auto; -webkit-overflow-scrolling: touch; }
+
+.wbListView .sectionLabel { 
+  background: rgba(0,0,0,0.4); color: white; padding: 4px 10px; 
+  font-size: 18px;
+}
+
+.wbListView.listStyleGrouped { padding: 30px 40px; background: #ddd; }
+.wbHSizeClassCompact .wbListView.listStyleGrouped { padding: 10px 10px; }
+
+.wbListView.listStyleGrouped .sectionLabel { 
+  text-shadow:0px 1.4px white; 
+  padding: 10px 10px;
+  background: transparent; color: #444;
+}
+.wbListView.listStyleGrouped .sectionData { 
+  border: 1px solid gray;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.wbListView.listStyleGrouped section { 
+  margin-bottom: 20px;
+  border-radius: 10px;
+}
+.wbListView.listStyleGrouped .wbListViewCell { 
+  background: white; border-right: 1px solid silver; 
+}
+
+.wbListViewCell { 
+  border-bottom: 1px solid silver; 
+  font-size: 18px;
+  min-height: 40px; 
+}
+
+.wbListViewCell .wbLabel.textLabel 
+{ text-align: left; padding: 10px 10px 2px 10px; }
+.wbListViewCell .wbLabel.detailTextLabel 
+{ text-align: left; color: gray;  padding: 2px 10px 10px 10px; }
+
+.wbListViewCell.wbListCellStyleWidget > .contentView > .wbLabel 
+{
+    width: 160px;
+    text-align: right;
+    font-size 80%;
+    float: left;
+    color: #666;
+}
+.wbListViewCell.wbListCellStyleWidget  > .contentView > .wbWidget {
+    padding: 8px;
+    margin-left: 160px;
+}
+.wbListViewCell.wbListCellStyleButton { cursor: pointer; }
+.wbListViewCell.wbListCellStyleButton  > .contentView > .wbLabel { text-align: center; }
+
+.wbCollectionViewCell > * {
+    text-align: center;
+    padding: 2px;
+}
+
+.wbObjectView img { 
+    border: 2px solid transparent; 
+    border-radius: 8px; 
+}
+.wbObjectView.wbStateSelected img { 
+    border: 2px solid blue; 
+    background: lightblue;
+}
+.wbObjectView label { 
+    font-weight: normal;
+    font-size: 13px; 
+    margins: auto;
+    max-width: 100%;
+    word-break: break-words;
+    border-radius: 5px;
+    padding: 0 1px;
+    text-overflow: ellipsis;
+    max-height: 36px;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    display: -webkit-box;
+    overflow: hidden;
+}
+.wbObjectView.wbStateSelected label { background: blue; color: white; }
+.wbObjectView.wbStateSelected .wbLabel { overflow: visible; }
+.wbObjectView.wbStateSelected label:focus { 
+    background: white; color: black; 
+    border-radius: 0;
+    text-overflow: default;
+    -webkit-line-clamp: inherit;
+    box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+}
+
+.wbCollectionViewCell {
+    display: inline-block;
+    width: 128px;
+    height: 140px;
+    margin: 4px;
+    overflow: hidden;
+    text-align: center;
+}
+.wbListViewCell.wbStateSelected .contentView {
+    background: #eef;
+}
+
+.wbWidget input {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  border: 0; margin: 0; padding: 1px;
+}
+
+.wbWidget textarea {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  border: 0; margin: 0; padding: 1px;
+}
+
+// testing
+
+.wbBoolean { border: 1px solid green; }
+
+.wbStateSticky {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.wbStateMinified {
+    opacity: 0;
+    -webkit-transform: scale(0.1);
+    -moz-transform: scale(0.1);
+    -o-transform: scale(0.1);
+    transform: scale(0.1);
+}
+
+.wbSplitViewGrip { background: darkgray; }
+
+.wbStateMaximized { position: absolute; top:0; left:0; right:0; bottom:0; }
+.wbStateBusy { cursor: wait !important; }
+.wbStateAnimated {
+    -webkit-transition: all 0.4s ease-in-out;
+    -moz-transition: all 0.4s ease-in-out;
+    -o-transition: all 0.4s ease-in-out;
+    transition: all 0.4s ease-in-out;
+}
+

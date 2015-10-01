@@ -1,0 +1,364 @@
+{
+   "command":"SELECT",
+   "rowCount":51,
+   "oid":null,
+   "rows":[
+      {
+         "stereotype":"schema",
+         "namespace":"atom",
+         "owner":"atom",
+         "sysid":6671506,
+         "comment":"Atom feed structure"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"contrib",
+         "owner":"pg_module",
+         "sysid":6671507,
+         "comment":"PostgreSQL module manager schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"datalink",
+         "owner":"datalink",
+         "sysid":6671508,
+         "comment":"SQL/MED datalink type support"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"dbi_link",
+         "owner":"postgres",
+         "sysid":6671509,
+         "comment":"This schema holds all the functionality needed for using dbi-link.\n"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"dbms",
+         "owner":"postgres",
+         "sysid":6671510,
+         "comment":"Database administration utilities"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"dbms_metadata",
+         "owner":"postgres",
+         "sysid":6671511,
+         "comment":"Database metadata and DDL export library"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"desktop",
+         "owner":"desktop",
+         "sysid":6671512,
+         "comment":"Open Desktop Database"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"en_culture_si",
+         "owner":"en_culture_si",
+         "sysid":6671513,
+         "comment":"culture.si website (production)"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"en_culture_si_old",
+         "owner":"en_culture_si",
+         "sysid":6671514,
+         "comment":"culture.si website (old production)"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"en_culture_si_stats",
+         "owner":"en_culture_si",
+         "sysid":6671515,
+         "comment":"culture.si website (custom statistics)"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"forms",
+         "owner":"forms",
+         "sysid":6671516,
+         "comment":"SQL Forms (NOT USED)"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"frida",
+         "owner":"frida",
+         "sysid":6671517,
+         "comment":"Support for FRIDA V project"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"frida_wiki",
+         "owner":"frida_wiki",
+         "sysid":6671518,
+         "comment":"MediaWiki for FRIDA V project"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"gdata",
+         "owner":"gdata",
+         "sysid":6671519,
+         "comment":"Google data"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"gis",
+         "owner":"postgres",
+         "sysid":21623,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"http",
+         "owner":"http",
+         "sysid":6671520,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"information_schema",
+         "owner":"postgres",
+         "sysid":11502,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"klet",
+         "owner":"wdbi",
+         "sysid":6671521,
+         "comment":"Stuff to be deleted (eventually)"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"lacanoid",
+         "owner":"lacanoid",
+         "sysid":6671522,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"ljudmila",
+         "owner":"ljudmila",
+         "sysid":6671523,
+         "comment":"Ljudmila operations"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"ljudmila_info",
+         "owner":"ljudmila_info",
+         "sysid":6671524,
+         "comment":"Ljudmila Drupal installation (BROKEN)"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"ljudmila_trac",
+         "owner":"ljudmila_trac",
+         "sysid":6671525,
+         "comment":"Trac project tracker"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"ljudmila_wiki",
+         "owner":"ljudmila_wiki",
+         "sysid":6671526,
+         "comment":"Ljudmila MediaWiki installation"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"m3c_wiki",
+         "owner":"m3c_wiki",
+         "sysid":6671527,
+         "comment":"M3C MediaWiki installation"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"mediawiki",
+         "owner":"postgres",
+         "sysid":6671528,
+         "comment":"Ljudmila MediaWiki DBI link to mysql@huda"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"modules",
+         "owner":"modules",
+         "sysid":6671529,
+         "comment":"PostgreSQL module manager schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"network",
+         "owner":"network",
+         "sysid":6671531,
+         "comment":"Network configuration information"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"nodedata",
+         "owner":"nodedata",
+         "sysid":6671532,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"oordbms",
+         "owner":"oordbms",
+         "sysid":6671533,
+         "comment":"Object-oriented approach"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"oordbms_data",
+         "owner":"oordbms",
+         "sysid":6671534,
+         "comment":"Logs and stuff for oordbms"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"os",
+         "owner":"postgres",
+         "sysid":6671535,
+         "comment":"Operating system utilities"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"pg_catalog",
+         "owner":"postgres",
+         "sysid":11,
+         "comment":"system catalog schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"public",
+         "owner":"postgres",
+         "sysid":2200,
+         "comment":"standard public schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"px",
+         "owner":"postgres",
+         "sysid":6671536,
+         "comment":"Portable eXpressions"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"rdf",
+         "owner":"rdf",
+         "sysid":6671537,
+         "comment":"MyRDF - Resource Description Framework Toolkit for PostgreSQL"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"slix",
+         "owner":"slix",
+         "sysid":6671538,
+         "comment":"Slix - Linux za vsakogar"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"sms",
+         "owner":"sms",
+         "sysid":6671539,
+         "comment":"SMS Mail"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"sparql",
+         "owner":"sparql",
+         "sysid":6671540,
+         "comment":"Interface to Virtuoso SPARQL endpoint"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"test",
+         "owner":"ziga",
+         "sysid":6671541,
+         "comment":"Test schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"tim",
+         "owner":"tim",
+         "sysid":6671542,
+         "comment":"Time is Money"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"twitter",
+         "owner":"twitter",
+         "sysid":6671543,
+         "comment":"Twitter aggregator"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"uml",
+         "owner":"uml",
+         "sysid":6671544,
+         "comment":"Universal Modelling Language"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"unicode",
+         "owner":"unicode",
+         "sysid":6671545,
+         "comment":"Unicode character data"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"val",
+         "owner":"val",
+         "sysid":6671546,
+         "comment":"Video Archive Ljudmila"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"wdbi",
+         "owner":"wdbi",
+         "sysid":6671547,
+         "comment":"WDBI utility"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"wiki",
+         "owner":"wiki",
+         "sysid":6671548,
+         "comment":"Ljudmila InterWiki"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"xmi",
+         "owner":"xmi",
+         "sysid":6671549,
+         "comment":"XMI information schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"xml",
+         "owner":"xml",
+         "sysid":6671550,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"xoo",
+         "owner":"zocky",
+         "sysid":6671551,
+         "comment":"Zocky's XOO schema"
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"xtuple",
+         "owner":"xtuple",
+         "sysid":13457751,
+         "comment":null
+      },
+      {
+         "stereotype":"schema",
+         "namespace":"ziga",
+         "owner":"ziga",
+         "sysid":6671552,
+         "comment":null
+      }
+   ]
+}

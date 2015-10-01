@@ -1,0 +1,54 @@
+#wiki-page-title { color: white; }
+
+#page > section,
+    padding: 10px;
+}
+
+article {
+    padding: 10px;
+}
+
+body > section {
+    position: absolute;
+    top: 44px;
+    left: 0; right: 0;
+    bottom: 0;
+    padding: 10px;
+}
+
+.wikiPageNotFound > * {
+    font-size: 120%;
+    margin: 0.5em;
+}
+
+.wikiMessages > * {
+    display: block;
+    margin: 1em 2em;
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+    background: #eee;
+    color: black;
+    border: 1px solid #444;
+}
+
+.wikiMessages > .error div.message {
+    font-size: 144%;
+    margin-bottom: 1em;
+}
+.wikiMessages > .error div.actions { text-align: center; }
+
+
+.wbNavigationBar { 
+  background: #666;
+  background-image: -webkit-gradient(
+    linear, left bottom, left top,
+    color-stop(0.29, rgb(150,150,150)),
+    color-stop(0.91, rgb(190,190,190))
+  );
+  background-image: -moz-linear-gradient(
+    center bottom,
+    rgb(150,150,150) 29%,
+    rgb(190,190,190) 91%
+  );  
+}

@@ -1,0 +1,18 @@
+#!/bin/sh
+# this program builds nodejs debian package from source
+
+
+version=0.10.25
+archive=node-v$version.tar.gz
+
+set -e
+
+cd ..
+wget -N http://nodejs.org/dist/v$version/$archive
+tar xzvf $archive && cd node-v$version
+./configure --prefix=/usr
+sudo checkinstall -y --install=no --pkgname nodejs --pkgversion $version  make install
+#sudo checkinstall -y --install=no --pkgversion $version  make -j$(($(nproc)+1)) install
+
+mv nodejs_*.deb ..
+echo "Node.js debian package has been created in parent directory."

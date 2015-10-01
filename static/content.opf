@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="nodex.ljudmila.org" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:title>Nodes: linux for web</dc:title>
+    <dc:creator opf:role="aut">Ljudmila.org</dc:creator>
+    <dc:language>en</dc:language>
+    <dc:date opf:event="">2014-01-01</dc:date>
+    <dc:publisher>Ljudmila.org</dc:publisher>
+    <meta content="0.1" name="Nodex version" />
+  </metadata>
+  <manifest>
+    <item href="app/login/"    id="login" media-type="application/x-nodex-application" />
+    <item href="app/shell/"    id="shell" media-type="application/x-nodex-application" />
+    <item href="app/dev/"      id="dev"   media-type="application/x-nodex-application" />
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="login" />
+    <itemref idref="shell" />
+    <itemref idref="dev" />
+  </spine>
+  <guide>
+    <reference href="app/login/" title="Login" type="login" />
+    <reference href="app/shell/" title="Shell" type="home-page" />
+  </guide>
+</package>

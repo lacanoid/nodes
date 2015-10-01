@@ -1,0 +1,39 @@
+#!/bin/sh
+ 
+# Quick start-stop-daemon example, derived from Debian /etc/init.d/ssh
+set -e
+ 
+# Must be a valid filename
+NAME=netty
+PIDFILE=/var/run/$NAME.pid
+DAEMON=/usr/sbin/netty
+DAEMON_OPTS=
+SHARE=/usr/share/nodes 
+LOG=/var/log/nodes/netty.log
+
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+export NODE_PATH=$SHARE/node_modules
+cd $SHARE
+ 
+case "$1" in
+  status|"-c")
+	start-stop-daemon --status --quiet --pidfile $PIDFILE
+	;;
+  start|"-D")
+# FIXME: add  --no-close where supported
+	start-stop-daemon --start --quiet --make-pidfile --pidfile $PIDFILE --background --chdir $SHARE --exec $DAEMON -- $DAEMON_OPTS >>$LOG
+	;;
+  stop|"-k")
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --oknodo --pidfile $PIDFILE
+	;;
+  restart|"-r")
+	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- $DAEMON_OPTS
+	;;
+ 
+  *)
+	echo "Usage: "$0" {status|start|stop|restart}"
+	exit 1
+esac
+ 
+exit 0

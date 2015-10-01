@@ -1,0 +1,278 @@
+#!/usr/bin/nodejs
+// -*- mode: javascript -*-
+////////////////////////////////////////////////////////////////////////////////
+// CONFIG
+
+var opt = require('node-getopt').create([
+    ['p', 'port=ARG', 'server port'],
+    ['e', 'etc=DIR',  'configuration directory'],
+    ['h', 'help']
+]).bindHelp().parseSystem();
+
+////////////////////////////////////////////////////////////////////////////////
+// LIBS
+
+var fs = require('fs'),
+url = require('url'),
+pam = require('authenticate-pam'),
+http = require('http'),
+https = require('https'),
+httpProxy = require('http-proxy'),
+child_process = require('child_process'),
+express = require('express'),
+posix = require('posix');
+
+var config = {
+    port: opt.options.port || process.env['NETTY_PORT'] || (process.getuid()>0?4000:443),
+    etc: opt.options.etc || (process.getuid()>0?('./etc'):'/etc/nodes'),
+    loginExec: (process.getuid()>0?('./bin'):"/usr/sbin")+"/netty-login",
+    portmin: process.env['NETTY_PORTMIN'] || 44100,
+    portnum: 99
+};
+
+config.https = {
+	key:  fs.readFileSync(config.etc+'/key.pem'),
+	cert: fs.readFileSync(config.etc+'/cert.pem')
+};
+
+console.log('BEGIN NETTY',new Date());
+//console.log('CONFIG',config);
+
+//-----------------------------------------------------------------
+
+function keys(a) {  var b=[];  for(var i in a) b.push(i); return b; }
+
+//-----------------------------------------------------------------
+
+var sessions = {
+    keys: {},
+    genKey: function() {
+	return Math.random().toString(36).slice(2) + "-" +
+	  (Date.now()*1000000+Math.floor(Math.random()*1000000)).toString();
+    },
+    portmap: {},
+    addSession: function(sid,session) { this.keys[sid]=session; },
+    deleteSession: function(sid) { 
+	if(!sid) return;
+	var s = this.keys[sid];
+	if(s) {
+	    console.log('KILL',[s.label,sid]);
+	    s.proc && s.proc.kill && s.proc.kill();
+	    delete this.portmap[this.keys[sid].port];
+	    delete this.keys[sid]; 
+	}
+    },
+    killAll: function() {
+	console.log('KILLALL');
+	for(i in this.keys) { this.deleteSession(i); }
+    },
+    listSessions: function() {
+	for(var sid in this.keys) { 
+	    var s = this.keys[sid];
+	    console.log('USER',[s.label,sid]);
+	}
+    },
+    getPort: function() {
+	var i;
+	for(i=config.portmin;i<=config.portmin+config.portnum;i++) {
+	    if(!this.portmap[i]) {
+		this.portmap[i]=1;
+		return i;
+	    }
+	}
+	return 0;
+    },
+    setupCookies: function(req, res) {
+//	console.info('COOKIES', req.cookies);
+	var sid = req.cookies.sid;
+	if(!sid || sid=='undefined') {
+	    sid = sessions.genKey();
+	    console.log('SET COOKIE ',req.connection.remoteAddress);
+	    res.cookie('sid',sid,{path:'/',expires: new Date(Date.now() + 9000000000)});
+	}
+	return sid;
+    },
+};
+
+
+//process.stdin.resume();
+process.on('exit', function() { 
+    console.log('EXIT'); 
+    sessions.killAll(); 
+    console.log('END.'); 
+});
+process.on('SIGINT', function () { 
+    console.log("\nSIGINT"); 
+    if(keys(sessions.keys).length>0) {
+	// console.log("ACTIVE SESSIONS");
+	sessions.listSessions();
+    } else {
+	process.exit(2);
+    }
+});
+process.on('SIGTERM', function () { 
+    console.log("\nSIGTERM"); 
+    process.exit(3);
+});
+process.on('uncaughtException', function(e) {
+    console.log('EXCEPTION');
+    if(e && e.stack) console.log(e.stack);
+    process.exit(99);
+});
+
+var app = express();
+app.use(express.cookieParser('ClearRatherThanDeep'));
+app.use(express.static('./static'));
+app.use(express.json());
+app.use(express.urlencoded());
+
+app.get('/api/hostinfo', function(req,res) {
+    child_process.exec('uptime ; domainname',
+		       function (error, stdout, stderr) {
+			   var r = {hostname:posix.gethostname()};
+			   if(stdout) {
+			       var a = stdout.split("\n");
+			       r.uptime = a[0];
+			       r.domainname = a[1];
+			   }
+			   res.json(r);
+			   res.end();
+		       });
+});
+
+app.get('/api/logout', function(req,res) {
+    var sid = req.cookies.sid;
+    res.clearCookie('sid');
+    sessions.deleteSession(sid);
+    res.end('');
+});
+
+app.get('/api/login', function(req,res) {
+    var sid = sessions.setupCookies(req,res);
+    
+    url = req.urlp = url.parse(req.url, true);
+    username=req.query.username;
+    password=req.query.password;
+
+//    res.setHeader("Connection","close"); // safari?
+
+    if(username && password && sid) {
+	pam.authenticate(username, password, function(err) {
+	    if(err) {
+		console.log(err);
+		res.json({success:false, detail:'Login failed'});
+	    }
+	    else {
+		console.log("LOGIN "+username);
+
+		var session = {};
+		session.username=username;
+		session.remote_host=req.connection.remoteAddress;
+		session.ready=false;
+		session.label = username+'@'+session.remote_host;
+
+		require('freeport')(function(er, port) {
+		    session.port = port;
+		    session.auth=true;
+		    sessions.addSession(sid,session);
+		    
+		    var env2 = {
+			NODEX_URL: "http://127.0.0.1:"+session.port,
+			NODEX_SID: sid,
+			NODEX_ROOT: process.cwd(),
+			PORT: session.port,
+			PATH: "/usr/local/bin:/usr/bin:/bin",
+		    };
+		    session.proc= child_process.spawn(config.loginExec,[username],{
+			cwd: undefined,
+			env: env2,
+			customFds: [-1,-1,-1],
+			setsid: true,
+		    });
+		    session.proxy = new httpProxy.HttpProxy({
+			target: {
+			    host: '127.0.0.1',
+			    port: session.port,
+			}
+		    });
+		    session.proc.on('error', function(code) {
+			console.log(username+':ERROR:child process errored with code ', code);
+			sessions.deleteSession(sid);
+		    });
+		    session.proc.on('exit', function(code) {
+			if(!session.ready) {
+			    res.json({success:true, detail:'Shell done'});
+			}
+			console.log(username+':EXIT:child process exited with code ' + code);
+			sessions.deleteSession(sid);
+		    });
+		    session.proc.stdout.on('data', function (data) {
+			if(!session.ready) {
+			    session.ready = true;
+			    setTimeout( function() {
+				console.log("SESSION READY");
+				res.json({success:true, detail:'Shell ready'});
+			    },100);
+			}
+			console.log(username+':'+ data.toString().replace(/\s*$/,""));
+		    });
+		    session.proc.stderr.on('data', function (data) {
+			console.log(username+':ERR:' + data);
+			if(!session.ready) {
+			    session.ready = true;
+			    res.json({success:true, detail:'Shell error'});
+			}
+		    });
+		});
+	    }
+	});
+    } else { 
+	res.json({
+	    success:false, 
+	    detail:'Please provide username and password'});
+    }
+});
+
+app.get('/', function(req,res) {
+//    console.log('ROOT',req.session);
+    sessions.setupCookies(req,res);
+    var sid = req.cookies.sid;
+    if(sid) {
+	var s = sessions.keys[sid];
+	if(s)
+	    res.redirect('/app/shell/#');
+    }
+    res.redirect('/app/login/');
+});
+
+app.all('*', function (req, res) {
+//    console.info('PCOOKIES', req.cookies);
+//    console.info('SESSIONS', sessions);
+    var sid = req.cookies.sid;
+    if(sid) {
+	var s = sessions.keys[sid];
+	if(s && s.proxy) {
+//	    console.info(s.username+':PROXY:', req.url);
+	    if(s.ready) {
+		s.proxy.proxyRequest(req, res)
+	    } else {
+		console.error("NOT READY");
+	    }
+	} else {
+	    res.redirect(302, '/app/login/');
+	}
+    } else {
+	res.redirect(302, '/app/login/');
+    }
+
+});
+
+var server = https.createServer(config.https, app) 
+
+try {
+    server.listen(config.port)
+    console.log('HTTPS LISTEN PORT '+config.port);
+} 
+catch(err) {
+    console.log("LISTEN ERROR",err);
+}

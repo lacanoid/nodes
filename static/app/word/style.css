@@ -1,0 +1,12 @@
+/* styles for edit */
+
+.wbWebEditor > article {
+    background: white;
+    margin: 10px.
+    border: 1px solid black;
+    padding: 20px;
+}
+
+.cke_reset{
+    min-height: 200px;
+}

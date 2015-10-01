@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+my $portLower=3000;
+my $portUpper=60000;
+
+use Socket;
+
+socket S, PF_INET, SOCK_STREAM,getprotobyname("tcp");
+$port = $portLower;
+
+++$port until bind S, sockaddr_in($port,inet_aton("127.1"));
+print $port;
+print "\n";

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+ <head>
+    <title>Kiki Kalendar</title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="generator" content="Nodes alpha"/>
+
+    <link rel="icon" href="icon.png" type="image/png"/>
+    <link rel="apple-touch-icon" href="apple-icon.png"/>
+    <link rel="top"  title="Top of the site" href="/"/>
+
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+    <link rel="stylesheet" type="text/css" href="calendar.css"/>
+<style id="myStyles">
+</style>
+<style>
+</style>
+ </head>
+
+ <body>
+ <div id="screen" class="wb-ui-screen">
+   <div id="window" class="wb-ui-window">
+   <div id="toolbar-top" class="wb-ui-toolBar">
+     <div class="wb-ui-barItemLeft">
+       <div id="bl" class="wb-ui-button">Left</div>
+       <div id="br" class="wb-ui-button">Right</div>
+     </div>
+     <div class="wb-ui-barTitle">
+       <div id="theLabel">Hello</div>
+     </div>
+   </div>
+   <div id="main" class="wb-ui-stackView">
+   </div> <!-- main -->
+   </div>
+   </div>
+ </div> <!-- #screen -->
+
+ <script type="text/javascript" src="jquery.js"></script>
+ <script type="text/javascript" src="px.js"></script>
+ <script type="text/javascript" src="sprintf.js"></script>
+ <script type="text/javascript" src="date.js"></script>
+ <script type="text/javascript" src="wb.js"></script>
+ <script type="text/javascript" src="dateNavigator.js"></script>
+ <script type="text/javascript">
+
+var navc;
+
+$(window).load( function() {
+    navc = new DateNavigatorController({id:"DNC",parent:"main"});
+    $('#myStyles').text('body { background: red; }');
+});
+
+ </script>
+
+</body>
+</html>

@@ -1,0 +1,196 @@
+na wired povezavi
+
+######################
+######################
+######################
+######################
+######################
+######################
+######################
+######################
+######################
+
+SOURCE LOCATION
+	svn.ljudmila.net
+	
+#todo
+	0) treba je pregledat source
+	1) to je treba dat na github
+	
+PROBLEMI ZA PREGLEDAT SOURCE
+	* dependencies + licences
+	
+prioriteta
+	dat to v debian
+	
+make file:
+	dela z npm
+
+make file #todo
+bower
+	
+
+########################################################
+INSTALL PROCEDURE
+
+skopiral čez sshfs
+
+	make clean
+		??? make realclean
+	------------
+	rm -rf src/netty-login
+	make
+	------------
+	sudo bin/install_dependancies
+	------------
+	make package
+	------------
+	
+	
+	
+NODE?
+	/usr/bin/node
+	"pomembno da je prava verzija" ->>> ???? katera
+	
+
+I HAD TO
+	cd /usr/bin
+	ln -s nodejs node
+
+
+#todo
+SPEDENI KLJUČE !!!!!!
+fix:
+	create-certificates
+
+
+Enter pass phrase for server.key:
+	krneki
+		3x ???????
+	SI
+	enter........
+	
+Enter pass phrase for server.key.org:
+	krneki
+		1x ?????
+
+
+#todo !!!!!!!!!!!!!!!
+	create-certificates fix
+CRT / KEY -> .pem		
+	
+	
+
+
+------------------------------
+
+
+RUN:
+	bin/netty
+	
+	
+
+	
+
+
+	
+########################################################
+
+(part of package)
+"""
+package: tarball
+        @find . -name '*~' | xargs rm -f
+        debuild -us -uc
+
+clean:
+        rm -f make.log
+
+node_modules:
+        npm install
+
+realclean: clean
+        -debuild clean
+        -rm -rf node_modules
+"""
+
+--------------
+netty:exec error: Error: Command failed: omxplayer.bin: no process found
+/bin/sh: 1: omxplayer: not found
+--------------
+
+DEPENDS ON
+	omxplayer or what
+	
+	
+
+
+
+
+########################################################
+########################################################
+########################################################
+
+DEBUILD + LINTIAN
+
+vse je v /debian
+
+
+
+########################################################
+########################################################
+########################################################
+
+APPS
+https://localhost:4000/app/top/
+
+#todo !!!!!!!!!!!!!!!!!!!!!!! #asap
+LISTA APPOV NA WEBU
+
+RAZLIKA:
+	static/app/...
+IN
+	"remote app" -> pac nek app via url
+	
+INSTALL = kopija v static/app
+
+########################################################
+
+NODEX
+
+"bios"
+
+/bin/nodex
+
+
+
+########################################################
+########################################################
+########################################################
+
+#feature
+AUTOCOMPLETION
+	like in bash
+	+ more
+
+http://ubuntuforums.org/showthread.php?t=1095590
+http://www.debian-administration.org/articles/316
+
+9544  02/07/14 02:53:33 cat /etc/bash_completion
+ 9545  02/07/14 02:53:48 cat /usr/share/bash-completion/bash_completion 
+
+
+
+########################################################
+########################################################
+########################################################
+
+#todo #important
+MAKE NETTY RUN AS NOT ROOT
+
+* port 443
+	-> run on another port
+
+* PAM
+	-> ...
+
+* 

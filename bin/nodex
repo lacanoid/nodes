@@ -1,0 +1,898 @@
+#!/usr/bin/nodejs
+// -*- mode: javascript -*-
+////////////////////////////////////////////////////////////////////////////////
+// CONFIG
+
+var fs = require('fs');
+
+var config = {
+    limits: { 
+	post: "64mb",
+	smallObject: 256*256, // 64k
+	getInfo: 1024*32,
+	explore: 5000,
+	find: 5000
+    },
+    socketio: false,
+//    conString : "postgres:"
+//  this gets configured later
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// LIBS
+
+var express = require('express');
+var http = require('http');
+var https = require('https');
+var sys = require('sys');
+var child_process = require('child_process');
+var posix = require('posix');
+var mime = require('mime');
+var path = require('path');
+var url = require('url');
+var jf = require('jsonfile');
+var plist = require('plist');
+var multipart = require('connect-multiparty');
+var xpg = require('xpg');
+;
+process.env['PGAPPNAME']="nodex";
+
+////////////////////////////////////////////////////////////////////////////////
+// nu.js
+
+function keys(a) {  var b=[];  for(var i in a) b.push(i);  return b; }
+
+var nu = {
+    sys: {
+	ego: function() { posix.getpwnam(posix.geteuid()); },
+    }
+};
+
+//----------------------------------------------------------------------
+
+function nuFail(res,code,msg,err) {
+    console.log('FAIL',code,msg,err);
+    res.writeHead(code, { 'Content-Type': 'text/plain' });
+    msg && res.end(msg.toString());
+    return;
+}
+
+// all at once
+function nuJSON(res,object) {
+    res.end(JSON.stringify(object));
+}
+
+// streaming
+function nuJSON0(res,object) {
+    res.write(JSON.stringify(object)+"\n");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// nu.js
+
+var auth = {
+   requireLogin: function(req, res, next) {
+//       console.log("AUTH?",req.cookies.sid);
+	var sid = req.cookies.sid;
+	if(sid && sid==process.env['NODEX_SID']) next();
+        else {
+	    res.writeHead(403, { 'Content-Type': 'text/plain' });
+	    res.end('Not logged in');
+	}
+    },
+    genkey: function() {
+	return Date.now()*1000000+Math.floor(Math.random()*1000000);
+    },
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// express
+
+var app = express();
+
+app.use(express.cookieParser('ClearRatherThanDeep'));
+app.use(express.static('./static'));
+app.use(express.json());
+app.use(express.urlencoded());
+app.use(express.compress());
+app.use(express.json({limit: config.limits.post}));
+app.use(express.urlencoded({limit: config.limits.post}));
+app.use(express.bodyParser({limit: config.limits.post}));
+
+////////////////////////////////////////////////////////////////////////////////
+// bios.js
+
+var children = {};
+
+// root
+app.get('/', function(req,res) {
+    console.log('ROOT',req.session);
+    if (req.session && req.session.auth) {
+	res.redirect('/app/shell/#');
+    } else {
+	res.redirect('/app/login/');
+    }
+});
+
+// fallback icons
+app.get('/icon/mime/:type/:subtype', function(req,res) {
+    var type = req.params.type;
+    var subtype = req.params.subtype;
+    console.log('ICON',type);
+    res.sendfile('./static/icon/mime/'+type+'/__DEFAULT__.png');
+});
+
+////////////////////////////////////////////////////////////////////////////////
+
+var filer = {
+    pathFromURL: function(url) {
+	if(!url) return null;
+	if(url.substr(0,1)=='/') return url;
+	if(url.substr(0,5)=="file:") { 
+	    url=url.substr(5);
+	    url=url.replace(/^\/\/[^\/]*/,""); // remove hostname
+	    if(!(url.substr(0,1)=='/')) url=path.join(process.env.HOME,url); 
+	    return path.normalize(url);
+	};
+	return null;
+    },
+
+    backupFile: function(URL,cb) {
+	var path = this.pathFromURL(URL);
+	if(!path) return false;
+	var s;
+	try { s = fs.lstatSync(p); } catch(e) {}
+	if(s) return fs.renameSync(path,path+'~');
+    },
+
+    rename: function(URL,newURL,cb) {
+	var path = this.pathFromURL(URL);
+	var newPath = this.pathFromURL(newURL);
+	if(path && newPath) {
+	    return fs.rename(path,newPath,cb);
+	}
+	return false;
+    },
+
+    mkdir: function(URL,cb) {
+	var path = this.pathFromURL(URL);
+	if(path) return fs.mkdir(path,cb);
+	return false;
+    },
+
+    getVolInfo: function(p,cb) {
+	var q = "df -PT .";
+	child_process.exec(q, {env:childEnv(),cwd:p},
+			   function (error, stdout, stderr) {
+			       if(stdout) { 
+				   var volinfo = stdout.split(/\n/)[1];
+				   var s = volinfo && volinfo.match(/^(\/.+?)\s+(\w+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)%\s+(.*)/);
+				   if(s.length==8) {
+				       volinfo = {};
+				       var a = ['device','fstype','size','used','available','capacity','mount'];
+				       for(var i in a) { volinfo[a[i]]=s[(i|0)+1]; }
+				       cb && cb(volinfo); 
+				   }
+				   cb && cb(null); 
+			       }
+			       else { cb && cb(null); }
+			   });
+    },
+    
+    myReadObjectSync: function(p) {
+	var meta; // info from .info file
+	try {
+	    if(fs.existsSync(p)) {
+		switch(path.extname(p)) {
+		case '.json':
+		    try { meta = jf.readFileSync(p); } catch(e) {}
+		    break;
+		case '.plist':
+		case '.webloc':
+		    try { meta = plist.parseFileSync(p); } catch(e) { console.error(e); }
+		    break;
+		}
+	    }
+	}
+	catch(e) { console.error(e); }
+	return meta;
+    },
+    myWriteObjectSync: function(p, data) {
+	var meta; // info from .info file
+	console.log("myWriteObject",p,data);
+	try {
+	    switch(path.extname(p)) {
+	    case '.json':
+		jf.writeFileSync(p);
+		break;
+	    case '.plist':
+	    case '.webloc':
+		var body = plist.build(data).toString();
+		fs.writeFileSync(p,body);
+		console.log("SAVE",body);
+		break;
+	    }
+	}
+	catch(e) { console.error(e); return e; }
+    },
+
+    setData: function(URL,info) {
+	var p = this.pathFromURL(URL);
+	this.myWriteObjectSync(p, info);
+    },
+
+    getInfo: function(URL,options) {
+	if(!options) options={};
+	var info = {dc:{},wb:{}};
+	var p = this.pathFromURL(URL);
+	var s; // stat info
+	var n = path.basename(p);
+	var m; // mime type
+	var meta; // info from .info file
+	var isObject = false;
+	
+	try { s = fs.lstatSync(p); } catch(e) {}
+	if(s && s.isSymbolicLink()) {
+	    p = fs.readlinkSync(p); s = null;
+	    try { s = fs.lstatSync(p); } catch(e) {}
+	}
+
+	info.extname = path.extname(p);
+
+	// stupid mime lookup - fix it !!!
+	var m = mime.lookup(n);
+	// custom overrides
+	switch(info.extname.toLowerCase()) {
+	case '.plist':
+	    m = 'application/x-plist';
+	    isObject = true;
+	    break;
+	case '.json':
+	    isObject = true;
+	    break;
+	case '.info':
+	    m = 'application/x-nodex-info';
+	    isObject = true;
+	    break;
+	case '.webloc':
+	    m = 'application/x-nodex-bookmark';
+	    isObject = true;
+	    break;
+	};
+
+	info.filename = n;
+	info.name = n;
+	info.isObject = isObject;
+	// EVENTUALLY CHANGE TO	info.name = path.basename(n,info.extname);
+
+	if(s) {
+	    s.filename = n;
+	    info.isDirectory = s.isDirectory();
+	    info.isSymbolicLink = s.isSymbolicLink();
+
+	    var pi = p+".info";
+	    if(info.isDirectory) { pi = path.join(p,'package.json'); }
+	    meta = this.myReadObjectSync(pi);
+
+	    if(isObject && (!options.noData)) { 
+		if(s.size>config.limits.getInfo) {
+		    console.warn("BIG OBJECT",p);
+		} else {
+		    info.data = this.myReadObjectSync(p);
+		}
+	    }
+
+	    if(n.substr(-1)=="~") { m = 'inode/x-nodex-backup'; }
+	    if(info.isDirectory) { m = 'inode/directory'; }
+	}
+	
+	info.mime = m;
+	info.icon = (info.data && info.data.icon) || 'icon:mime/'+m;
+	info.image = '/icon/mime/'+m+'.png';
+	info.url = 'file:'+p;
+	info.isObject = isObject;
+
+	if(meta) {
+	    for(i in ['image','mime','label','title','description']) { 
+		if(meta[i]) info.dc[i] = meta[i];
+	    }
+	}
+	info.meta = meta;
+	info.fs=s;
+
+	return info;
+    },
+
+    fail: function(res,err) {
+	if(!err) return;
+	else switch(err.code) {
+	case 'ENOENT':
+	    nuFail(res,404,"Object not found",err)
+	    break;
+	case 'EACCES':
+	    nuFail(res,403,"Access forbidden",err)
+	    break;
+	default:
+	    nuFail(res,500,err)
+	}
+    },
+
+    sendIRI: function(iri,res) {
+	iri = filer.pathFromURL(iri);
+	if(!iri) { nuFail(res,400,'Bad request (bad iri)'); }
+	else {
+	    console.log("GET",iri);
+	    var s;
+	    try {
+		s = fs.lstatSync(iri);
+		if(!s.isDirectory()) {
+		    var m = mime.lookup(iri);
+		    var fn = path.basename(iri);
+		    res.setHeader("Content-type",m);
+		    res.sendfile(iri);
+		} else {
+		    res.writeHead(400, { 'Content-Type': 'text/plain' });
+		    res.end('Bad request (not a file)');
+		}
+	    } catch(err) {
+		filer.fail(res,err);
+		return;
+	    }
+	}
+   }
+};
+
+/*
+app.get('/api/os/*', function(req,res) {
+    if(!(req.session && req.session.auth)) {
+	res.writeHead(403, { 'Content-Type': 'text/plain' });
+	res.end('Not logged in');
+    } else { next(); }
+});
+*/
+
+app.get('/api/filer/mkdir/?', auth.requireLogin, function(req,res) {
+    var iri = req.query.iri;
+    console.log('MKDIR',iri);
+    if(!iri) { nuFail(res,400,'Bad request (no iri)'); }
+    var st = filer.mkdir(iri,function(err) {
+	if(err) { nuFail(res,500,err); }
+	else nuJSON(res,{success:true});
+    });
+});
+
+app.get('/api/filer/rename/?', auth.requireLogin, function(req,res) {
+    var iri = req.query.iri;
+    var new_iri = req.query.new_iri;
+    console.log('RENAME',iri,new_iri);
+    if(!iri)     { nuFail(res,400,'Bad request (no iri)'); return; }
+    if(!new_iri) { nuFail(res,400,'Bad request (no new_iri)'); return; }
+    var st = filer.rename(iri,new_iri,function(err) {
+	if(err) { nuFail(res,500,err); }
+	else nuJSON(res,{success:true});
+    });
+});
+
+app.get('/api/stream', function(req,res) {
+    var i=1;
+    res.send("<h1>Begin...</h1>\n");
+    var timer = setInterval(function() {
+	console.log('ping',i);
+	if(i<=3) {
+	    res.send("<p>Hello "+i+"</p>\n");
+	    i++;
+	} else {
+	    res.end();
+	    clearInterval(timer);
+	}
+    }, 1000);
+});
+
+app.get('/api/filer/getinfo/?', auth.requireLogin, function(req,res) {
+    var iri=req.query.iri;
+    var p = filer.pathFromURL(iri);
+    if(iri && p) {
+	console.log("GET INFO",iri);
+	var s = fs.lstatSync(p);
+	if(s && s.isDirectory()) { 
+	    var pi = path.join(p,'.info/info.json'); 
+	    var info0; // info from .info file
+	    try {
+		if(fs.existsSync(pi)) info0 = jf.readFileSync(pi);
+		res.json(info0);
+	    }
+	    catch(e) {}
+	} else {
+	    var info = filer.getInfo(p);
+	    res.json(info);
+	}
+    } else {
+	nuFail(res,400,'Bad request (no iri)');
+    }
+});
+app.get('/api/filer/putinfo/?', auth.requireLogin, function(req,res) {
+    var iri=req.query.iri;
+    var data;
+    if(req.query.json) 
+	try {
+	    data = JSON.parse(req.query.json);
+	} catch(e) {
+	    nuFail(res,400,'Bad request (bad json)');
+	}
+
+    if(!data) {
+	nuFail(res,400,'Bad request (no data)');
+    }
+
+    var p = filer.pathFromURL(iri);
+    if(iri && p && data) {
+	console.log("PUT INFO",iri);
+	filer.setData(p,data);
+	res.json({success:true});
+    } else {
+	if(!iri) nuFail(res,400,'Bad request (no iri)');
+    }
+});
+
+app.get('/api/filer/setinfo/?', auth.requireLogin, function(req,res) {
+    var iri=req.query.iri;
+    var info;
+    try {
+	info = JSON.parse(req.query.info);
+    }
+    catch(e) { info = {}; }
+
+    var p = filer.pathFromURL(iri);
+    if(iri && p && info) {
+	console.log("SET INFO",iri);
+	var s = fs.lstatSync(p);
+	if(s && s.isDirectory()) { 
+	    var pi = path.join(p,'.info'); 
+	    try { fs.lstatSync(pi); }
+	    catch(e) {
+		try { fs.mkdirSync(pi); } catch(e) {}
+	    }
+	    try {
+		if(fs.lstatSync(pi).isDirectory()) {
+		    var p2 = path.join(pi,'info.json');
+		    jf.writeFileSync(p2, info);
+		}
+	    }
+	    catch(e) {}
+
+	    res.json({success:true});
+	}
+    } else {
+	nuFail(res,400,'Bad request (iri,info)');
+    }
+});
+
+app.get('/api/explore/?', auth.requireLogin, function(req,res) {
+    var iri=req.query.iri;
+    var h=Boolean(req.query.hidden);
+    iri = filer.pathFromURL(iri);
+    if(!iri) {
+	nuFail(res,400,'Bad request (iri)');
+    } else {
+	console.log("EXPLORE",iri);
+	filer.getVolInfo(iri, function(volinfo) {
+	    fs.readdir(iri, function(err,files) {
+		if(err) { filer.fail(res,err); return; }
+		files = files.
+		    filter(function(n){ return !(n.substr(-5)==".info"); }).
+		    map(function(n) {
+			var p = path.join(iri, n);
+			var info = filer.getInfo(p);
+			return info;
+		    }).
+		    filter(function(i){ if(h) return true; 
+					else return !(i.name.substr(0,1)=='.');});
+		
+		res.end(JSON.stringify({
+		    command: 'EXPLORE',
+		    iri: 'file://'+posix.gethostname()+iri,
+		    label: path.basename(iri),
+		    rowCount:files.length,
+		    rows:files,
+		    hostname: posix.gethostname(),
+		    volinfo: JSON.stringify(volinfo)
+		}));
+	    });
+	});
+    }
+});
+
+app.get('/api/filer/download/?', auth.requireLogin, function(req,res) {
+    var iri=req.query.iri;
+    iri = filer.pathFromURL(iri);
+    if(!iri) { nuFail(res,400,'Bad request (bad iri)'); }
+    else {
+	var s = fs.lstatSync(iri);
+	if(!s.isDirectory()) {
+	    var m = mime.lookup(iri);
+	    var fn = path.basename(iri);
+	    console.log("DOWNLOAD",m,fn,iri);
+	    res.setHeader("Content-type",m);
+	    res.setHeader("Content-Disposition",'attachment; filename="'+fn+'"');
+	    res.sendfile(iri);
+	} else {
+	    res.writeHead(400, { 'Content-Type': 'text/plain' });
+	    res.end('Bad request (not a file)');
+	}
+    }
+});
+
+app.get('/api/filer/get/?', auth.requireLogin, function(req, res){
+    var iri = req.query.iri || req.param.iri;
+    if(!iri) { nuFail(res,400,'Bad request (missing iri)'); return; }
+    filer.sendIRI(iri,res);
+});
+
+app.post('/api/filer/post/', auth.requireLogin,  
+	 function(req,res) {
+	     console.log("POST");
+	     var iri=req.body.iri;
+	     var c=req.body.content;
+	     if(!iri) { nuFail(res,400,'Bad request (missing iri)'); return; }
+	     if(!c) { nuFail(res,400,'Bad request (missing content)'); return; }
+	     var p = filer.pathFromURL(iri);
+	     if(!p) { nuFail(res,400,'Bad request (bad iri)'); }
+	     else {
+		 console.log("POST",iri,c.length);
+		 filer.backupFile(p);
+		 fs.writeFile(p,c, function(err) {
+		     if(err) filer.fail(res,err);
+		     else res.json({success:true});
+		 });
+	     }
+	 }
+);
+
+app.get('/api/filer/put/', auth.requireLogin,  
+	 function(req,res) {
+	     console.log("PUT");
+	     var iri=req.query.iri;
+	     var c=req.query.content;
+	     if(!iri) { nuFail(res,400,'Bad request (missing iri)'); return; }
+	     if(!c) { nuFail(res,400,'Bad request (missing content)'); return; }
+	     var p = filer.pathFromURL(iri);
+	     if(!p) { nuFail(res,400,'Bad request (bad iri)'); }
+	     else {
+		 console.log("PUT",iri,c.length);
+		 filer.backupFile(p);
+		 fs.writeFile(p,c, function(err) {
+		     if(err) filer.fail(res,err);
+		     else res.json({success:true});
+		 });
+	     }
+	 }
+);
+
+app.get(/^\/api\/filer\/get\/([^\?].+)?$/,  auth.requireLogin, function(req, res){
+    var iri = req.params[0];
+    if(!iri) { nuFail(res,400,'Bad request (missing iri)'); return; }
+    filer.sendIRI(iri,res);
+});
+
+
+app.post('/api/filer/upload/?', auth.requireLogin,  
+	 multipart({limit:'200mb', uploadDir:'/tmp'}), 
+function(req,res) {
+    var iri=req.body.iri;
+    iri = filer.pathFromURL(iri);
+
+    if(!iri) { nuFail(res,400,'Bad request (iri)'); }
+    else {
+	console.log("UPLOADING TO",iri);
+	var files=req.files.file;
+	if(!Array.isArray(files)) files=[files];
+
+	for(var i in files) {
+	    var f0 = files[i];
+	    console.log("UPLOAD FILE",f0.name);
+
+	    var f = {
+		name:f0.originalFilename, 
+		path:path.join(iri,f0.originalFilename), 
+		size:f0.size, 
+		type:f0.type
+	    };
+
+	    filer.backupFile(f.path);
+	    
+	    fs.rename(f0.path, f.path, function(err) {
+		if(err)
+		    if(err.code=='EXDEV') {
+			// rename failed, run mv shell command instead
+			var mv = child_process.spawn('mv',[f0.path,f.path]);
+			mv.on('close', function(code) {
+			    console.log('mv child process exited with code ' + code);
+			    res.json({success:code?false:true});
+			});
+		    } else {
+			nuFail(res,500,err)
+		    }
+		else
+		    res.json({success:true});
+	    });
+	}
+    }
+});
+
+app.get('/api/os/run/?', auth.requireLogin, function(req,res) {
+    // RUN ONCE AND RETURN THE RESULT
+    var q=req.query.q;
+    var iri=req.query.iri;
+    var pid=req.query.pid;
+//    if(!q)          { nuFail(res,400,'Bad request (missing q)'); }
+    if(!pid)          { nuFail(res,400,'Bad request (missing pid)'); }
+    if(!iri) { nuFail(res,400,'Bad request (missing iri)'); }
+    var p = filer.pathFromURL(iri);
+    if(!p)          { nuFail(res,400,'Bad request (bad iri)'); }
+
+    if(p) {
+	if(children[pid]) {
+	    // kill previous process
+//	    console.log(children[pid]);
+	    var c = children[pid];
+	    var pid1 = c.pid;
+	    console.log("KILL",pid,pid1);
+	    
+	    child_process.exec('kill $(ps -o pid --no-headers --ppid '+pid1+')');
+	    // c.kill('SIGTERM');
+	    children[pid]=null;
+	    setTimeout(function(){ c.kill('SIGKILL');},5000)
+	}
+	if(q && q.length>0) {
+	    console.log('RUN',pid,req.query.q);
+	    var child = 
+		child_process.exec(q, {env:childEnv() ,cwd:p}, 
+				   function (error, stdout, stderr) {
+				       // res.writeHead(100, { 'Content-Type': 'text/plain' });
+				       res.end(JSON.stringify({stdout:stdout,stderr:stderr,error:error}));
+				       if (error !== null) {
+					   console.log('exec error: ' + error);
+				       }
+				   });
+	    console.log("CHILD PID",child.pid);
+	    children[pid]=child;
+	} else {
+	    res.end();
+	}
+    }
+});
+
+app.get('/api/os/arun/?', auth.requireLogin, function(req,res) {
+    // RUN AND STREAM THE RESULT
+    var q=req.query.q;
+    var iri=req.query.iri;
+    var pid=req.query.pid;
+    if(!q) { nuFail(res,400,'Bad request (missing q)'); return; }
+    if(!pid) { nuFail(res,400,'Bad request (missing pid)'); return; }
+    if(!iri) { nuFail(res,400,'Bad request (missing iri)'); return; }
+    var p = filer.pathFromURL(iri);
+    if(!p)          { nuFail(res,400,'Bad request (bad iri)'); return; }
+
+    if(p && q) {
+	if(children[pid]) {
+	    // kill previous process
+//	    console.log("KILL",children[pid]);
+	    children[pid].kill();
+	    children[pid]=null;
+	}
+	if(q && q.length>0) {
+	    var args = q.trim().split(/\s+/);
+	    var cmd = args.shift();
+	    console.log('ARUN',p,cmd,args);
+	    var child = 
+		child_process.spawn(cmd, args, {env:childEnv(),cwd:p});
+	    
+	    if(child) {
+		children[pid]=child;
+		child.on('error',function(e) { nuJSON(res,{error:e}); });
+//		res.header('Content-type','application/octet-stream');
+		res.header('Content-type','text/plain; charset=UTF-8');
+		res.write('');
+		child.stdout.setEncoding("utf8");
+		child.stdout.on('data',function(data) { 
+		    console.log('DATA',data.substr(0,10)+"...");
+		    nuJSON0(res,{stdout:data}); 
+		});
+		child.stderr.setEncoding("utf8");
+		child.stderr.on('data',function(data) { nuJSON0(res,{stderr:data}); });
+		child.on('close',function(c) {
+		    console.log('CLOSE');
+		    children[pid]=null;
+		    nuJSON(res,{close:c});
+		});
+	    } else {
+		nuJSON(res,{success:false});
+	    }
+	}
+    }
+});
+
+var LineCutter = function() {
+    this.fragment = '';
+    this.input = function(data,cb) {
+	if(data==null) { this.fragment.length>0 && cb && cb([this.fragment]); this.fragment=''; return; }
+	this.fragment = this.fragment+data;
+	var a = this.fragment.split("\n");
+	this.fragment = a.pop();
+	if(cb && a.length>0) { cb(a); }
+    };
+};
+
+app.get('/api/filer/find/?', auth.requireLogin, function(req,res) {
+    // SEARCH FOR FILES
+    var q=req.query.q;
+    var iri=req.query.iri;
+    var pid=req.query.pid;
+    var limit=req.query.limit || config.limits.find;
+    var total=0;
+
+    if(!q) { nuFail(res,400,'Bad request (missing q)'); return; }
+    if(!pid) { nuFail(res,400,'Bad request (missing pid)'); return; }
+    if(!iri) { nuFail(res,400,'Bad request (missing iri)'); return; }
+    var p = filer.pathFromURL(iri);
+    if(!p)   { nuFail(res,400,'Bad request (bad iri)'); return; }
+
+    if(p && q) {
+	if(children[pid]) {
+	    // kill previous process
+//	    console.log("KILL",children[pid]);
+	    children[pid].kill();
+	    children[pid]=null;
+	}
+	if(q && q.length>0) {
+	    var args = [p,'-iname','*'+q+'*'];
+	    var cmd = 'find';
+	    console.log('BEGIN FIND',args);
+	    var child = 
+		child_process.spawn(cmd, args, {env:childEnv(),cwd:p});
+	    var lco = new LineCutter();
+//	    var lce = new LineCutter();
+	    
+	    if(child) {
+		children[pid]=child;
+		child.on('error',function(e) { nuJSON(res,{error:e}); });
+//		res.header('Content-type','application/octet-stream');
+		res.header('Content-type','text/plain; charset=UTF-8');
+		res.write('');
+		child.stdout.setEncoding("utf8");
+		child.stdout.on('data',function(data) { 
+		    lco.input(data, function(a) { 
+			var r = {stdout:a};
+			if(a && total<limit) {
+			    for(var i in a) { 
+				//			    console.log('FOUND',a[i]);
+				var ii  = filer.getInfo(a[i],{noData:true}); 
+				ii.relpath = a[i].substr(p.length+1); 
+				a[i] = ii;
+				total++;
+				if(total==limit) {
+				    console.log("FIND LIMIT ",limit);
+				    child.kill();
+				    a = a.slice(0,i);
+				    r.more=true;
+				    break;
+				}
+			    }
+			    nuJSON0(res,r); 
+			}
+		    });
+		});
+		/*
+		child.stderr.setEncoding("utf8");
+		child.stderr.on('data',function(data) { 
+		    lce.input(data, function(a) { nuJSON0(res,{stderr:a}); });
+		});
+		*/
+		child.on('close',function(c) {
+		    console.log('END FIND',total);
+//		    lce.input(null, function(a) { nuJSON0(res,{stderr:a}); });
+		    lco.input(null, function(a) { 
+			nuJSON0(res,{stdout:a, total:total, more:total>=limit}); 
+		    });
+		    children[pid]=null;
+		    nuJSON(res,{close:c});
+		});
+	    } else {
+		nuJSON(res,{success:false});
+	    }
+	}
+    }
+});
+
+////////////////////////////////////////////////////////////////////////////////
+
+function getSystemProcesses(cb) {
+    var q = "ps -e --no-headers -o pid,ppid,ucmd";
+    child_process.exec(q, {env:childEnv()},
+		       function (error, stdout, stderr) {
+			   if(stdout) {
+			       var l = stdout.split("\n");
+			       var m, p = {};
+			       for(var i in l) {
+				   if(m=l[i].match(/^\s*(\d+)\s+(\d+)\s+(.+)$/)) {
+				       var pid = m[1], ppid = m[2], ucmd = m[3];
+				       if(!p[pid])  p[pid]={};
+				       p[pid].name=ucmd;
+				       if(!p[ppid]) p[ppid]={};
+				       if(!p[ppid].children) p[ppid].children=[];
+				       p[ppid].children.push(p[pid]);
+				   }
+			       }
+			       cb && cb(p[1]);
+			   } else {
+			       cb && cb();
+			   }
+		       });
+}
+
+
+app.get('/api/os/ps', auth.requireLogin, function(req,res) {
+    getSystemProcesses( function(r) {
+	res.json(r);
+    });
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// database hooks
+
+var db_call = function(req,res) { 
+    console.log("DB_CALL");
+    xpg.call(config.conString,req,res); 
+}
+
+app.all('/api/data/call/:function?', auth.requireLogin, db_call);
+app.all('/api/data/call/:schema?/:function',auth.requireLogin, db_call);
+
+////////////////////////////////////////////////////////////////////////////////
+
+function childEnv() {
+    return {TERM:'dumb',HOME:process.env.HOME};
+}
+
+function loadConfig() {
+    var f = ".config/nodes/config.json";
+    var p = path.join(process.env.HOME,f); 
+    var c;
+    try { c = jf.readFileSync(p); } catch(e) {}
+    if(c) {
+	console.log("CONFIGURE from "+p);
+	for(var i in c) { config[i]=c[i]; }
+    } else {
+	console.log("NO CONFIGURE from "+p);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+//console.log(
+//    '=============================================================================='
+//);
+
+loadConfig();
+var xurl = url.parse(process.env['NODEX_URL'] || 'http:');
+if(!xurl.port) { xurl.port=3000; }
+
+var server;
+server = http.createServer(app);
+
+//io = require('socket.io').listen(server);
+
+try {
+    server.on('error',function(e) {
+	console.error(e);
+    });
+    server.listen(xurl.port,xurl.hostname);
+    console.log('LISTEN URL '+xurl.protocol+'//'+xurl.hostname+':'+xurl.port);
+    if(config.socketio) {
+	io.listen(server).on('connection', socketHandler);
+    }
+} 
+catch(err) {
+    console.log("LISTEN ERROR",err);
+}
+

@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+ <head>
+    <title>Kiki Kalendar</title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="generator" content="Nodes alpha"/>
+
+    <link rel="icon" href="icon.png" type="image/png"/>
+    <link rel="apple-touch-icon" href="apple-icon.png"/>
+    <link rel="top"  title="Top of the site" href="/"/>
+
+    <!-- library stylesheets -->
+    <link rel="stylesheet" type="text/css" href="fullcalendar.css"/>
+    <link rel="stylesheet" type="text/css" href="fullcalendar.print.css" media="print"/>
+
+    <!-- application stylesheets -->
+    <link rel="stylesheet" type="text/css" href="style.css"/>
+    <link rel="stylesheet" type="text/css" href="calendar.css"/>
+
+ </head>
+
+ <body>
+ <div id="screen" class="wb-ui-screen">
+   <div id="window" class="wb-ui-window">
+   <div id="toolbar-top" class="wb-ui-toolBar">
+     <div class="wb-ui-barItemLeft">
+       <div class="wb-ui-button">Calendars</div>
+       <div id="theLabel"></div>
+     </div>
+     <div class="wb-ui-barTitle">
+       <div id="wb-cal-tabs" class="wb-ui-segmentedControl"><div id="wb-cal-tab-day" class="wb-ui-segment first selected" onclick="app.setTab('day')">Day</div><div id="wb-cal-tab-week" class="wb-ui-segment" onclick="app.setTab('week')">Week</div><div id="wb-cal-tab-month" class="wb-ui-segment" onclick="app.setTab('month')">Month</div><div id="wb-cal-tab-list" class="wb-ui-segment last" onclick="app.setTab('list')">List</div></div>
+     </div>
+     <div class="wb-ui-barItemRight">
+       <input id="q" type="text"/>
+     </div>
+   </div>
+
+   <div id="main" class="wb-ui-stackView">
+
+     <div id="main-fullcal">   
+       <div id="main-day-left" class="page-left">
+         <div id="main-day-left-top" 
+	      style="position: absolute; top: 30px; left: 30px; right: 20px; height: 140px; border-bottom: 1px solid black;">
+	   <div id="main-day-daily" style="position: absolute: border: 1px solid black;">
+             <div id="main-day-daily-day" style="font-size: 90px; line-height: 80px;">22</div>
+             <div id="main-day-daily-fullday">Wednesday, Jan 27<br/>2011</div>
+           </div>
+	   <div id="main-day-monthly" style="position: absolute; top: 0; left: 50%; right: 0; bottom; 0; border: 1px solid black;">
+             month cal here...
+           </div>
+         </div>
+         <div id="main-day-left-bottom" class="wb-ui-scrollView"
+	      style="position: absolute; top: 200px; left: 30px; right: 20px; bottom: 30px; border: 1px solid green;">
+List of events here
+<p>
+Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+</p>
+<p>
+It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
+</p> 
+         </div>
+       </div> <!-- #main-day-left -->
+
+       <div id="main-fullcal-page" class="page">
+         <div id="main-fullcal-bottom" 
+	  style="overflow: hidden; position: absolute; top: 30px; left: 30px; right: 30px; bottom: 30px; border: 1px solid green;">
+         </div>
+       </div> <!-- #main-fullcal-page -->
+     </div> <!-- #main-fullcal -->
+
+     <div id="main-list">   
+       <div id="main-list-page-left" style="right: 61%;" class="page-full">
+         <div id="main-list-left-top" 
+	  style="position: absolute; top: 30px; left: 30px; right: 30px; height: 100px; border: 1px solid red;">
+           <div id="main-list-left-label" style="font-size: 32px; text-align: center; ">March 2011</div>
+         </div>
+         <div id="main-list-left-bottom"  class="wb-ui-scrollView" 
+	  style="position: absolute; top: 130px; left: 30px; right: 30px; bottom: 30px; border: 1px solid green;">
+         </div> <!-- #main-list-bottom -->
+       </div> <!-- #main-list-page-right -->
+
+       <div id="main-list-page-right" style="left: 40%;" class="page-full">
+         <div id="main-list-right-top" 
+	  style="position: absolute; top: 30px; left: 30px; right: 30px; height: 100px; border: 1px solid red;">
+           <div id="main-list-right-label" style="font-size: 32px; text-align: center; ">March 2011</div>
+         </div>
+         <div id="main-list-right-bottom"  class="wb-ui-scrollView" 
+	  style="position: absolute; top: 130px; left: 30px; right: 30px; bottom: 30px; border: 1px solid green;">
+         </div> <!-- #main-list-bottom -->
+       </div> <!-- #main-list-page-right -->
+     </div> <!-- #main-list -->
+
+   </div> <!-- main -->
+   <div id="toolbar-bottom" class="wb-ui-toolBar">
+     <div class="wb-ui-barItemLeft">
+       <div id="wb-cal-today-button" class="wb-ui-button">Today</div>
+     </div>
+     <div id="wb-cal-navigator" class="wb-ui-barTitle">
+     </div> <!-- #wb-cal-navigator -->
+     <div class="wb-ui-barItemRight">
+       <div onclick="app.showCreateEventForm()" class="wb-ui-button">+</div>
+     </div>
+   </div>
+   </div>
+ </div> <!-- #screen -->
+
+ <div id="wb-ui-modal-coverscreen" class="wb-ui-coverScreen" style="display: none;">
+ </div> <!-- #coverscreen -->
+
+ <!-- modal forms go here -->
+ <div id="wb-cal-event-form" class="wb-ui-modal-form" style="display: none;">
+   <div id="event-form-toolbar-top" class="wb-ui-toolBar">
+     <div class="wb-ui-barItemLeft">
+     </div>
+     <div class="wb-ui-barTitle">
+       <div id="wb-cal-form-tabs" class="wb-ui-segmentedControl"><div id="wb-cal-form-tab-info" class="wb-ui-segment first selected" onclick="app.setFormTab('info')">Info</div><div id="wb-cal-form-tab-description" class="wb-ui-segment" onclick="app.setFormTab('description')">Description</div><div id="wb-cal-form-tab-images" class="wb-ui-segment" onclick="app.setFormTab('images')">Images</div></div>
+     </div>
+     <div class="wb-ui-barItemRight">
+       <div onclick="app.modalHideAnimated('wb-cal-event-form',true)" class="wb-ui-button">Close</div>
+     </div>
+     <div class="wb-ui-dialog">
+       <table class="wb-ui-form" border="1">
+        <tr>
+	  <th>What?</th>
+	  <td colspan="4"><input type="text" size="60"/></td>
+	</tr>
+        <tr>
+	  <th>Where?</th>
+	  <td colspan="4"><input type="text" size="60"/></td>
+	</tr>
+        <tr>
+	  <th>When?</th>	
+	  <td>from</td>
+	  <td><input type="text" size="20"/></td>
+	  <td>to</td>
+	  <td><input type="text" size="20"/></td>
+	</tr>
+       </table>
+     </div>
+   </div>
+ </div>
+ 
+ <!-- system alerts -->
+ <div id="wb-ui-system-coverscreen" class="wb-ui-coverScreen">
+ </div> <!-- #coverscreen -->
+
+ <script type="text/javascript" src="jquery-1.5.2.min.js"></script>
+ <script type="text/javascript" src="jquery-ui-1.8.11.custom.min.js"></script>
+ <script type="text/javascript" src="px.js"></script>
+ <script type="text/javascript" src="sprintf.js"></script>
+ <script type="text/javascript" src="wb.js"></script>
+ <script type="text/javascript" src="date.js"></script>
+ <script type="text/javascript" src="dateNavigator.js"></script>
+ <script type="text/javascript" src="calendar.js"></script>
+ <script type="text/javascript" src="fullcalendar.js"></script>
+
+<script type="text/javascript">
+var app;
+
+$(window).load( function() {
+    app = new wb.cal.app();
+    print(app);
+});
+
+</script>
+
+
+</body>
+</html>

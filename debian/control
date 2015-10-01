@@ -1,0 +1,25 @@
+Source: nodes
+Section: misc
+Priority: optional
+Maintainer: Ziga Kranjec <ziga@ljudmila.org>
+Homepage: http://wiki.ljudmila.org/Nodes
+Build-Depends: debhelper, devscripts, lintian, checkinstall, nodejs, libpam0g-dev
+Standards-Version: 3.9.3
+
+Package: nodes
+Architecture: any
+Depends: nodejs, procps, libpam0g
+# Pre-Depends: <comma-separated list of packages>
+# Recommends: <comma-separated list of packages>
+# Suggests: <comma-separated list of packages>
+# Provides: <comma-separated list of packages>
+# Replaces: <comma-separated list of packages>
+# Copyright: <copyright file; defaults to GPL2>
+# Readme: <README.Debian file; defaults to a generic one>
+# Extra-Files: <comma-separated list of additional files for the doc directory>
+# Files: <pair of space-separated paths; First is file to include, second is destination>
+#  <more pairs, if there's more than one file to include. Notice the starting space>
+Description: compact JavaScript based operating system
+ Nodes is a new, better way to use your computer!
+ .
+ It is quite awesome. A whole OS, really...

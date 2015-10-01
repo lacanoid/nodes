@@ -1,0 +1,26 @@
+.wbCollectionViewCell img:hover {
+    opacity: 0.5;
+}
+
+.wbScreen {
+    background: #76757a url("../login/bg.jpg");
+}
+
+.wbCollectionViewCell {
+}
+
+.wbConsole {
+    background: #eee;
+}
+
+.wbConsoleCell > .wbToolbar {
+    position: sticky;
+}
+
+.wbConsole > section { background: #ddd; }
+
+.wbConsoleCell tr {
+    font-size: 13px;
+    font-family: Monaco, Menlo, Consolas, "Courier New", monospace;
+}
+

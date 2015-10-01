@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+ <head>
+    <title>Http Stream Test</title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="generator" content="Nodes alpha"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <!-- library stylesheets -->
+    <link rel="stylesheet" href="/lib/css/bootstrap.css"/>
+    <link rel="stylesheet" href="/lib/css/font-awesome.css"/>
+    <link rel="stylesheet" href="/lib/css/wb.css"/>
+
+    <link rel="stylesheet" href="index.css"/>
+
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+
+<!-- <script type="text/javascript" src="/api/libs?jquery+uri+px+wb"></script> -->
+ <script type="text/javascript" src="/lib/js/jquery-1.11.0.js"></script>
+ <script type="text/javascript" src="/lib/js/uri.min.js"></script>
+<!-- <script type="text/javascript" src="/lib/js/html2canvas.js"></script> -->
+ <script type="text/javascript" src="/lib/js/px.js"></script>
+ <script type="text/javascript" src="/lib/js/wb.js"></script>
+
+<script>
+
+var App = new wb.Application.extend({
+  init: function() {
+    this.query = new wb.Query({url:"/stream",delegate:this});
+  },
+  didReceiveData: function(query,data) {
+    console.log("DATA",data);
+    for(i in data) { $('#r').append('<p>'+data[i]+'</p>'); }
+  },
+  queryFinished: function(query) {
+    console.log('DONE');
+  }
+});
+
+var app;
+
+function init() {
+  console.log("INIT");
+  app = new App();
+};
+
+$(window).load(init);
+
+</script>
+
+ </head>
+
+ <body>
+<h1>Hello</h1>
+
+<div id="r">
+</div>
+
+</body>
+</html>

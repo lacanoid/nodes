@@ -1,0 +1,747 @@
+<!DOCTYPE HTML><head><meta charset="utf-8"><title>miniDev</title>
+<script src="/lib/ace/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/ace/theme-cobalt.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/ace/theme-chrome.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/ace/mode-javascript.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/ace/mode-html.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/ace/mode-css.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/ace/mode-xml.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/js/jquery-1.10.2.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/js/jq-drag.js" type="text/javascript" charset="utf-8"></script>
+<script src="/lib/js/Messenger.js"></script><style  type="text/css" id="dev-css">* {
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-size:inherit;
+  color:inherit;
+  text-decoration:none;
+  outline:0;
+}
+body {
+  font-family:sans-serif;
+  font-size:12px;
+}
+#left {
+  position:absolute;
+  bottom:0px;
+  left:0;
+  width:600px;
+  top:0px;
+}
+#left > dl {
+  position:absolute;
+  bottom:0px;
+  left:0;
+  right:8px;
+  top:0px;
+}
+#resizer {
+  position:absolute;
+  bottom:0px;
+  right:0;
+  width:8px;
+  top:0px;
+ 
+}
+#right {
+  position:absolute;
+  bottom:0px;
+  right:0;
+  left:600px;
+  top:0px;
+}
+
+.full {
+  position:absolute;
+  top:0px;
+  left:0;
+  width:100%;
+  height:100%;
+}
+
+#overlay {
+  position:absolute;
+  top:0px;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index:1;
+  display:red;
+}
+
+
+#frame {
+  position:absolute;
+  top:0px;
+  left:0;
+  width:100%;
+  height:100%;
+  border:0;
+  background:white;
+  box-shadow:0 0 2px 1px rgba(0,0,0,0.3) inset;
+}
+
+.bar {
+  background:#eee;
+  position:absolute;
+  height:30px;
+  left:0;
+  right:0;
+  top:0px;
+  line-height:30px;
+  vertical-align:middle;
+  padding:0 8px;
+}
+.bar > * {
+  margin:0 2px; 
+  padding:0 4px;
+}
+.underbar {
+  position:absolute;
+  top:30px;
+  left:0;
+  right:0;
+  bottom:0px;
+}
+
+option.label {
+  display:none;
+}
+
+dl.book > dd {
+  position:absolute;
+  top:28px;
+  left:0;
+  right:0;
+  bottom:0;
+  background:white;
+  z-index:0;
+  opacity:0;
+  border-top:solid 2px #666;
+}
+dl.book > dd.underbar {
+  top:58px;
+}
+dl.book > dt {
+  float:left;
+  background:#eee;
+  padding:2px 8px 8px;
+  border-radius:4px;
+  box-shadow:0 0 1px 1px #666;
+  margin:8px 2px 0;
+  cursor:default;
+}
+dl.book > dt.selected {
+  background:#666;
+  color:white;
+}
+dl.book > dt.selected + dd {
+  z-index:1;
+  opacity:1;
+}
+.padded {
+  padding:6px;
+}
+.runtime .chrome {
+  display:none;
+}
+.runtime .content {
+  position:absolute!important;
+  display:block!important;
+  top:0!important;
+  left:0!important;
+  width:100%!important;
+  height:100%!important;
+}
+
+#more {
+  width:20px;
+  padding:0px;
+}
+
+option {
+  padding:2px 8px;
+}
+
+#name {
+  border:0;
+}
+
+.bar details {
+  display:inline-block;
+}
+.bar {
+ z-index:2;
+}
+.bar details .details {
+  display:block;
+  position:absolute;
+  z-index:100;
+  width:100px;
+  background:#ddd;
+  padding:2px 4px;
+  border:solid #666 1px;
+}
+.bar details .details >  * {
+  display:block;
+  width:100%;
+  margin:2px 0;
+}
+#name {
+ width:200px;
+ display:inline-block;
+ font-size:15px;
+}
+#msg {
+width:200px;
+}
+#go {
+ float:right;
+ height:26px;
+}
+
+#console {
+ position:absolute;
+ background:rgba(0,0,0,0.8);
+ text-align:center;
+ bottom:0;
+ left:0;
+ right:0;
+ color:lime;
+ font-size:16px;
+}
+
+.ace_editor {
+  font-family: Mono,monospace;
+  font-size: 14px;
+  line-height:140%;
+}
+
+.menu {
+  display:inline-block;
+  list-style:none;
+  cursor:default;
+}
+.menu > dl {
+  display:inline-block;
+}
+.menu > dl > dt {
+  margin: 0;
+  padding: 0 8px;
+  font-weight: bold;
+  display: inline-block;
+}
+.menu dd {
+  position:absolute;
+  background:white;
+  box-shadow:0 0 6px -2px black;
+  display:none;
+  line-height:100%;
+  color:black;
+}
+
+.menu dl:hover > dt {
+  background:#208;
+  color:white;
+}
+.menu dl:hover > dd { 
+  display:block 
+}
+.menu ul {
+  list-style:none;
+  margin:0;
+  padding:2px;
+}
+.menu li > * {
+  display:block!important;
+}
+.menu li {
+  list-style:none;
+  margin:0;
+  padding:4px 4px 4px 14px;
+  border-radius:2px;
+  font-size:13px;
+  position:relative;
+  white-space:nowrap;
+}
+.menu li.selected:before {
+  position:absolute;
+  left:0;
+  margin-left:4px;
+  content:'•'
+}
+.menu li:hover {
+  background:#208;
+  color:white;
+}
+
+.menu li:has(dl) {
+  padding:0;
+}
+.menu dd dd {
+  top:0;
+  left:100%;
+  margin-left: -4px;
+  width:auto;
+}
+</style>
+<script type="text/javascript" id="dev-js-main"> 
+
+
+var editors = {};
+  if(self!=top && self.Application) Application.setup({
+  navigation:false,
+  reload:false,
+  on:{
+    develop: function() {
+      $('body').toggleClass('develop runtime');
+    }
+  } 
+}); else Application = false;
+
+
+$(document).on('click','dl.book>dt', function() {
+  var $this=$(this);
+  $this.siblings().removeClass('selected');
+  $this.addClass('selected');
+  editors[$this.next().attr('id')].focus();
+})
+
+$(document).on('click','#go',compile);
+
+$(document).on('keypress', function(e) {
+  if (e.which == 13 && e.ctrlKey) compile();
+})
+
+function getDocument() {
+  var doc = {};
+  doc.body = editors.htmlBody.getSession().getValue().trim();
+  doc.script = editors.jsMain.getSession().getValue().trim();
+  doc.css = editors.css.getSession().getValue().trim();
+  doc.load = editors.jsOnLoad.getSession().getValue().trim();
+  doc.head = editors.htmlHead.getSession().getValue().trim();
+  return doc;
+}
+
+function decompileDocument() {
+  var doc = {};
+  var d = frame.document;
+  if(d) {
+    var b = d.body;
+    if(!b) return;
+    doc.body = '<body contentEditable="'+b.contentEditable+'">'+"\n"+b.innerHTML.trim()+"\n"+'</body>'+"\n"
+
+    doc.head = '<head>'+"\n"+d.head.innerHTML.trim()+"\n</"+"head>\n";
+
+    var s = d.getElementById('dev-js-main');
+    if(s) doc.script = s.innerHTML.trim();
+
+    var c = d.getElementById('dev-css');
+    if(c) doc.css = c.innerHTML.trim();
+  }
+
+  editors.htmlBody.getSession().setValue(doc.body,false);
+  editors.jsMain.getSession().setValue(doc.script);
+  editors.css.getSession().setValue(doc.css);
+//  editors.htmlHead.getSession().setValue(doc.head);
+
+  return doc;
+}
+
+function compile() {
+  var jsInclude = '';
+  $('.config.js:checked').each(function(){
+    jsInclude+='<script src="/src/lib/'+this.value+'?breakcache='+Math.random()+'"></'+'script>\n'
+  })
+  var isApp = false;
+  var doc = getDocument();
+
+  var jsMain = '<script type="text/javascript" id="dev-js-main">'+"\n"+doc.script+"\n</"+"script>\n";
+  var jsOnLoad = '<script type="text/javascript" id="dev-js-onload">'+"\n"+'window.addEventListener("load",function(){\n'+doc.load+'},false);</'+'script>';
+
+  var jsApp = !isApp ? '': '<script type="text/javascript" src="/src/lib/app.js" id="dev-app"></'+'script>';
+  var jsAppScript = !isApp ? '': '<script  type="text/javascript">self.Application=parent.Application;</'+'script>';
+
+  var js = jsMain + jsOnLoad;   
+
+  var htmlBody = doc.body;
+  var css = '<style  type="text/css" id="dev-css">'+"\n"+ doc.css + "\n</"+"style>\n";
+  var htmlHead = doc.head + jsApp + jsInclude;
+  var htmlSourceHead = doc.head + jsApp + jsAppScript + jsInclude ;
+
+  var htmlCompiled = '<!DOCTYPE HTML>'+"\n<html>\n<head>\n"+'<meta charset="utf-8">'+"\n"+htmlHead+css+js+"\n</head>\n"+htmlBody+"\n</html>\n";
+  var htmlSource = '<!DOCTYPE HTML>'+"\n<html>\n<head>\n"+'<meta charset="utf-8">'+"\n"+htmlSourceHead+css+js+"\n</head>\n"+htmlBody+"\n</html>\n";
+
+  remember();
+
+  frame.location='about:blank';
+  setTimeout(function() {
+    $('#view').html('<iframe id="frame" name="frame"></iframe>');
+    editors.htmlCompiled.getSession().setValue(htmlCompiled);
+    try {
+      frame.document.write(htmlSource);
+      frame.document.close();
+      frame.document.addEventListener('DOMSubtreeModified', function() {
+        decompileDocument();
+        return;
+
+ //        editors.htmlCurrent.getSession().setValue(frame.document.documentElement.innerHTML);
+
+      var b = frame.document.body;
+
+      if(b)
+         editors.htmlBody.getSession().setValue(
+          '<body contentEditable="'+b.contentEditable+'">'+"\n"+b.innerHTML.trim()+"\n"+'</body>'+"\n"
+         ,false);
+      });
+    } catch (e){
+      frame.document.write(e.toString());
+      frame.document.close();
+    }
+  },0);
+};
+
+window.recalled=false;
+function remember() {
+  if (window.recalled) window.localStorage.devCurrentState = JSON.stringify(serialize());
+  isDirty = true;
+}
+window.onbeforeunload=function() {
+  frame.location='about:blank';
+  remember();
+};
+
+var isDirty = false;
+var editorSettings;
+
+
+var editorSettingsDefs = {
+  'theme' : {
+    set: function(value,setting) { this.setTheme('ace/theme/'+value) },
+    value: 'chrome',
+  },
+  'font-family' : {
+    set: function(value,setting) { $(this.container).css(setting,value) },
+    value: 'monospace',
+  },
+  'font-size': {
+    set: function(value,setting) { $(this.container).css(setting,value) },
+    value: '12px',
+  },
+  'line-height': {
+    set: function(value,setting) { $(this.container).css(setting,value) },
+    value: '120%',
+  },
+}
+
+
+var changeEditorSetting = function (setting,value) {
+  doChangeEditorSetting(setting,value);
+  localStorage.devAceEditorSettings = JSON.stringify(editorSettings);
+}
+
+function doChangeEditorSetting (setting,value) {
+  var s = editorSettingsDefs[setting]; 
+  if(!s) return;
+  console.log(setting,value);
+  for (var i in editors) s.set.apply(editors[i],[value,setting]);
+  editorSettings[setting] = value;
+  fixMultipleChoiceMenu('ul.editor-setting#'+setting,value);
+}
+
+function recall() {
+  try {
+    deserialize(JSON.parse(window.localStorage.devCurrentState||'{}'));
+    editorSettings = localStorage.devAceEditorSettings ? JSON.parse(localStorage.devAceEditorSettings) : {};
+    for (var i in editorSettingsDefs) doChangeEditorSetting(i,editorSettings[i] || editorSettingsDefs[i].value);
+  } catch (e) {
+  }
+  window.recalled = true;
+}
+
+function serialize() {
+  var mem = {
+    src:{},
+    config:{},
+  }
+  for (var i in editors) {
+    mem.src[i] = editors[i].getSession().getValue();
+  }
+  console.log('serialized',mem)
+  return mem;
+}
+
+function deserialize(mem) {
+  try {
+    isDirty = mem.dirty;
+    for (var i in mem.src) {
+      editors[i].getSession().setValue(mem.src[i]);
+    }
+  } catch (e) {console.log(e)}
+}
+
+makeEditors = function(sel){
+  $(sel).each(function() {
+    var $this = $(this);
+    var name = $this.attr('id');
+    if (editors[name]) return;
+
+    var mode = $this.attr('data-mode');
+    editors[name] = ace.edit(name);
+    editors[name].setTheme("ace/theme/cobalt");
+    editors[name].setShowPrintMargin(false);
+    editors[name].session.setMode("ace/mode/"+mode);
+    editors[name].session.setFoldStyle('markbegin');
+    editors[name].session.setTabSize(2);
+    editors[name].commands.addCommand({
+      name: 'compile',
+      bindKey: {
+          win: 'Ctrl-S',
+          mac: 'Command-S',
+          sender: name
+      },
+      exec: function(env, args, request) {
+          compile();
+      }
+    });
+    editors[name].commands.addCommand({
+      name: 'indent',
+      bindKey: {
+          win: 'Ctrl-I',
+          mac: 'Command-I',
+          sender: name
+      },
+      exec: function(env, args, request) {
+          indent(env, args, request);
+      }
+    });
+    editors[name].commands.addCommand({
+      name: 'decompile',
+      bindKey: {
+          win: 'Ctrl-B',
+          mac: 'Command-B',
+          sender: name
+      },
+      exec: function(env, args, request) {
+          decompileDocument(env, args, request);
+      }
+    })
+  });
+  
+}
+
+function formatXml(xml) {
+    var formatted = '';
+    var reg = /(>)(<)(\/*)/g;
+    xml = xml.replace(reg, '$1\r\n$2$3');
+    var pad = 0;
+    jQuery.each(xml.split('\r\n'), function(index, node) {
+        var indent = 0;
+        if (node.match( /.+<\/\w[^>]*>$/ )) {
+            indent = 0;
+        } else if (node.match( /^<\/\w/ )) {
+            if (pad != 0) {
+                pad -= 1;
+            }
+        } else if (node.match( /^<\w[^>]*[^\/]>.*$/ )) {
+            indent = 1;
+        } else {
+            indent = 0;
+        }
+
+        var padding = '';
+        for (var i = 0; i < pad; i++) {
+            padding += '  ';
+        }
+
+        formatted += padding + node + '\r\n';
+        pad += indent;
+    });
+
+    return formatted;
+}
+
+function indent(e) {
+  console.log("INDENT");
+  e.getSession().setValue(formatXml(e.getSession().getValue()));
+}
+
+function fixMultipleChoiceMenu (selector,value) {
+  $(selector+' > li').removeClass('selected').each(function() {
+    var $this = $(this);
+    if (($this.attr('data-value')||$this.text().trim())==value) $this.addClass('selected');
+  });
+}</script><script type="text/javascript" id="dev-js-onload">
+window.addEventListener("load",function(){
+window.DesktopApp && DesktopApp.create({
+  docs: {
+    'application/x-desktop-dev+json': {
+      catch: '*/*',
+      new: function(cb) {
+        cb(null,{ src: { 
+          htmlHead: '', htmlBody: '', 
+          jsMain: '', jsOnLoad: '', 
+          css: '' 
+        }, config: {} });
+      },
+      open: function(content,cb) {
+        deserialize(content);
+        console.log(content);
+        cb(null,'OK');
+      },
+      save: function(cb) {
+        console.log('hey');
+        try { cb(null,serialize()); } 
+        catch (err) { cb(err); }
+      },
+    },
+    'text/html': {
+      save: function(cb) {
+        cb(null,serialize().htmlCompiled);
+      }
+    }
+  }
+});
+
+
+$('#overlay').css({display:'none'});
+$('#resizer')
+.mousedown(function( e, dd ){
+  $('#overlay').css({display:'block'});
+})
+.drag(function(e,dd) {
+  $('#left').css({width:dd.offsetX});
+  $('#right').css({left:dd.offsetX});
+})
+.drag('end',function( e, dd ){
+  $('#overlay').css({display:'none'});
+  for (var i in editors) {
+    editors[i].resize();
+  }
+})
+.mouseup(function( e, dd ){
+  $('#overlay').css({display:'none'});
+});
+makeEditors('.editor');
+
+recall();
+
+
+
+
+var cssTimer = null;
+editors.css.getSession().on('change', function() {
+  clearTimeout(cssTimer);
+  cssTimer = setTimeout(function() {
+    try {
+      frame.document.getElementById('dev-css').innerHTML = editors.css.getSession().getValue();
+    } catch (e) {}
+  }, 1000);
+});
+
+
+function multipleChoiceMenu(selector,fn) {
+  $(selector).on('mousedown','> li',function() {
+    console.log('hey');
+    var $this = $(this);
+    $this.addClass('selected').siblings().removeClass('selected');
+    var value = $this.attr('data-value') || $this.text().trim();
+    fn.apply(this,[value,this.parentNode]);
+  });
+}
+
+multipleChoiceMenu('ul.editor-setting', function(value,menu) {
+  changeEditorSetting(menu.id,value);
+})},false);
+</script>
+</head><body>
+      <div class="bar" class="chrome" style="display: none;">
+      <div class ="menu">
+        <dl>
+          <dt>View</dt>
+          <dd>
+            <ul>
+              <li>
+                <dl>
+                  <dt>Theme ...</dt>
+                  <dd><ul class="editor-setting" id="theme">
+                    <li data-value="chrome">Bright</li>
+                    <li data-value="cobalt">Dark</li>
+                  </dd>
+                </dl>
+              </li>
+              <li>
+                <dl>
+                  <dt>Font ...</dt>
+                  <dd><ul class="editor-setting editor-css" id="font-family">
+                    <li data-value="monospace">Default</li>
+                    <li data-value="Courier">Courier</li>
+                    <li data-value="Mono">Mono</li>
+                  </dd>
+                </dl>
+              </li>
+              <li>
+                <dl>
+                  <dt>Font size...</dt>
+                  <dd><ul class="editor-setting editor-css" id="font-size">
+                    <li>10px</li>
+                    <li>11px</li>
+                    <li>12px</li>
+                    <li>13px</li>
+                    <li>14px</li>
+                    <li>15px</li>
+                    <li>16px</li>
+                  </dd>
+                </dl>
+              </li>
+              <li>
+                <dl>
+                  <dt>Line height...</dt>
+                  <dd><ul class="editor-setting editor-css" id="line-height">
+                    <li>100%</li>
+                    <li>110%</li>
+                    <li>120%</li>
+                    <li>130%</li>
+                    <li>140%</li>
+                    <li>150%</li>
+                    <li>160%</li>
+                  </dd>
+                </dl>
+              </li>
+            </ul>
+          </dd>
+        </dl>
+      </div>
+      <output id="name"></output>
+      <output id="msg"></output>
+      <button id="go">Go!</button>
+    </div>
+    <div class="content">
+      <div id="left">
+        <dl class="book chrome">
+          <dt>head</dt>
+          <dd class="editor" data-mode="xml" id="htmlHead"></dd>
+          <dt class="selected">body</dt>
+          <dd class="editor" data-mode="html" id="htmlBody"></dd>
+          <dt>script</dt>
+          <dd class="editor" data-mode="javascript" id="jsMain"></dd>
+          <dt>onLoad</dt>
+          <dd class="editor" data-mode="javascript" id="jsOnLoad"></dd>
+          <dt>CSS</dt>
+          <dd class="editor" data-mode="css" id="css"></dd>
+        </dl>
+        <div id="resizer"></div>
+      </div>
+      <dl id="right" class="book content">      
+        <dt class="selected chrome">view</dt>
+        <dd class="content" id="view"><iframe class="content" id="frame" name="frame">click go!</iframe></dd>
+        <dt class="chrome">source</dt>
+        <dd class="editor chrome" data-mode="html" id="htmlCompiled"></dd>
+	<!--
+        <dt class="chrome">innerHTML</dt>
+        <dd class="editor chrome" data-mode="html" id="htmlCurrent"></dd>
+	-->
+      </dl>
+      <div id="overlay" class="full"></div>
+    </div>
+</body></html>

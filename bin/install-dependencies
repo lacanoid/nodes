@@ -1,0 +1,15 @@
+#!/bin/sh
+
+sudo apt-get install \
+    debhelper devscripts lintian checkinstall \
+    libavahi-compat-libdnssd-dev libavahi-core-dev avahi-utils avahi-daemon \
+    libpam0g-dev \
+    libpq-dev \
+    python g++ make
+
+sudo apt-get install \
+    wv youtube-dl groff
+
+sudo apt-get install \
+    nodejs npm \
+    node-express 

@@ -1,0 +1,91 @@
+body {
+/*  background: #eeeeee; */
+}
+
+#c {
+    width: 10px;
+    height: 10px;
+    border: 1px solid red;
+    border-radius: 5px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -5px;
+    margin-top: -5px;
+}
+
+.n {
+/*  border: 1px solid blue; */
+  font-family: "Helvetica Neue", Helvetica;
+  color: #444;
+  font-weight: bold;
+  width: 64px;
+  height: 64px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: -32px;
+  margin-top: -32px;
+  font-size: 56px;
+  line-height: 64px;
+  text-align: center;
+}
+
+.cc {
+  position: absolute;
+}
+
+.tik {
+  position: absolute;
+  background: black;
+  width: 4px;
+  height: 22px;
+  margin-left: -2px;
+  margin-top: -11px;
+}
+
+.b {
+  position: absolute;
+  background: black;
+  width: 38px;
+  height: 16px;
+  margin-left: -18px;
+  margin-top: -8px;
+  box-shadow: 10px 10px 30px 10px rgba(100,100,100,0.3);
+  z-index: 100;
+}
+
+.hh {
+  position: absolute;
+  background: black;
+  width: 12px;
+  height: 26px;
+  margin-left: -6px;
+  margin-top: -112px;
+}
+
+.hm {
+  position: absolute;
+  background: black;
+  width: 6px;
+  height: 60px;
+  margin-left: -3px;
+  margin-top: -148px;
+}
+
+.hs {
+  position: absolute;
+  background: red;
+  width: 2px;
+  height: 26px;
+  margin-left: -1px;
+  margin-top: -114px;
+}
+
+#bg {
+  position: absolute;
+  left: 50%; top: 50%;
+  margin-left: -960px;
+  margin-top: -640px;
+}
+

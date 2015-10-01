@@ -1,0 +1,3 @@
+# nodes defaults file
+NETTY_PORT=443
+NETTY_PORTMIN=31000
