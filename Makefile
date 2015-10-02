@@ -42,7 +42,7 @@ newpackage:
 
 package: tarball
 	@find . -name '*~' | xargs rm -f 
-	debuild -us -uc
+	debuild -us -uc -i
 
 clean:
 	rm -f make.log
