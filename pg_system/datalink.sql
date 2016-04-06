@@ -31,7 +31,7 @@ SET search_path = datalink, pg_catalog;
 -- Name: datalink; Type: DOMAIN; Schema: datalink; Owner: postgres
 --
 
-CREATE DOMAIN datalink AS bigint;
+CREATE DOMAIN datalink AS text;
 
 
 ALTER DOMAIN datalink OWNER TO postgres;
@@ -289,10 +289,52 @@ COMMENT ON FUNCTION basename(text, text) IS 'Return file path basename without e
 
 
 --
--- Name: curl_get(text); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: curl_get(text, boolean); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION curl_get(url text, OUT ok boolean, OUT response_code integer, OUT response_body text, OUT retcode integer, OUT error text) RETURNS record
+CREATE FUNCTION curl_get(url text, head boolean DEFAULT false, OUT ok boolean, OUT response_code integer, OUT response_body text, OUT retcode integer, OUT error text) RETURNS record
+    LANGUAGE plperlu
+    AS $_$
+my ($url,$head)=@_;
+
+use strict;
+use warnings;
+use WWW::Curl::Easy;
+
+my $curl = WWW::Curl::Easy->new;
+my %r;
+  
+$curl->setopt(CURLOPT_USERAGENT, "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1");
+$curl->setopt(CURLOPT_URL, $url);
+$curl->setopt(CURLOPT_HEADER,$head?1:0);
+$curl->setopt(CURLOPT_FOLLOWLOCATION, 1);
+
+# A filehandle, reference to a scalar or reference to a typeglob can be used here.
+my $response_body;
+if($head) { $curl->setopt(CURLOPT_WRITEDATA,\$response_body); }
+else      { $curl->setopt(CURLOPT_WRITEHEADER,\$response_body); }
+
+# Starts the actual request
+my $retcode = $curl->perform;
+
+# Looking at the results...
+$r{ok} = ($retcode==0)?'yes':'no';
+$r{retcode} = $retcode;
+$r{response_code} = $curl->getinfo(CURLINFO_HTTP_CODE);
+$r{response_body} = $response_body;
+if(!$r{ok}) { $r{error} = $curl->strerror($retcode); }
+
+return \%r;
+$_$;
+
+
+ALTER FUNCTION datalink.curl_get(url text, head boolean, OUT ok boolean, OUT response_code integer, OUT response_body text, OUT retcode integer, OUT error text) OWNER TO postgres;
+
+--
+-- Name: curl_head(text); Type: FUNCTION; Schema: datalink; Owner: postgres
+--
+
+CREATE FUNCTION curl_head(url text, OUT ok boolean, OUT response_code integer, OUT response_body text, OUT retcode integer, OUT error text) RETURNS record
     LANGUAGE plperlu
     AS $_$
 my ($url)=@_;
@@ -306,12 +348,13 @@ my %r;
   
 $curl->setopt(CURLOPT_USERAGENT, "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.1) Gecko/20061204 Firefox/2.0.0.1");
 $curl->setopt(CURLOPT_URL, $url);
-$curl->setopt(CURLOPT_HEADER,0);
+$curl->setopt(CURLOPT_TIMEOUT, 5);
+$curl->setopt(CURLOPT_HEADER,1);
 $curl->setopt(CURLOPT_FOLLOWLOCATION, 1);
 
 # A filehandle, reference to a scalar or reference to a typeglob can be used here.
 my $response_body;
-$curl->setopt(CURLOPT_WRITEDATA,\$response_body);
+$curl->setopt(CURLOPT_WRITEHEADER,\$response_body);
 
 # Starts the actual request
 my $retcode = $curl->perform;
@@ -321,13 +364,66 @@ $r{ok} = ($retcode==0)?'yes':'no';
 $r{retcode} = $retcode;
 $r{response_code} = $curl->getinfo(CURLINFO_HTTP_CODE);
 $r{response_body} = $response_body;
-$r{error} = $curl->strerror($retcode);
+if(!$r{ok}) { $r{error} = $curl->strerror($retcode); }
 
 return \%r;
 $_$;
 
 
-ALTER FUNCTION datalink.curl_get(url text, OUT ok boolean, OUT response_code integer, OUT response_body text, OUT retcode integer, OUT error text) OWNER TO postgres;
+ALTER FUNCTION datalink.curl_head(url text, OUT ok boolean, OUT response_code integer, OUT response_body text, OUT retcode integer, OUT error text) OWNER TO postgres;
+
+--
+-- Name: datalink_id(text, name, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+--
+
+CREATE FUNCTION datalink_id(uri text, linktype name, comment text) RETURNS dl_id
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $_$
+declare
+ my_address alias for $1;
+ my_linktype alias for $2;
+ my_comment alias for $3;
+
+ my_id datalink.dl_id;
+ my_url datalink.uri;
+ my_fpath datalink.file_path;
+begin
+ if my_linktype not in ('URL','FS') then
+  raise exception 'DL0102:linktype must be URL or FS';
+ end if;
+
+ if my_linktype = 'URL' then
+  my_url := datalink.url_canonical(my_address);
+  my_fpath := datalink.dlurlpath(my_address);
+  select into my_id
+   id from datalink.dl_url where url=my_url;
+ end if;
+
+ if my_linktype = 'FS' then
+  my_fpath := my_address;
+  select into my_id
+   id from datalink.dl_url where fpath=my_fpath;
+ end if;
+
+ if not found then
+   my_id := datalink.dl_id();
+   insert into datalink.dl_url (id,url,cons,linktype,comment)
+   values (my_id,my_url,'v',my_linktype,my_comment);
+ end if;
+
+ return my_id;
+end
+$_$;
+
+
+ALTER FUNCTION datalink.datalink_id(uri text, linktype name, comment text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION datalink_id(uri text, linktype name, comment text); Type: COMMENT; Schema: datalink; Owner: postgres
+--
+
+COMMENT ON FUNCTION datalink_id(uri text, linktype name, comment text) IS 'return DATALINK value of any type with comment';
+
 
 --
 -- Name: dirname(text); Type: FUNCTION; Schema: datalink; Owner: postgres
@@ -350,34 +446,10 @@ COMMENT ON FUNCTION dirname(text) IS 'Return file path directory name';
 
 
 --
--- Name: dl_chattr(datalink, dl_options); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dl_chattr(datalink, dl_options) RETURNS boolean
-    LANGUAGE plpgsql
-    AS $_$begin
- update dl_url 
- set attr = $2
- where id=$1;
- return true;
-end;
-$_$;
-
-
-ALTER FUNCTION datalink.dl_chattr(datalink, dl_options) OWNER TO postgres;
-
---
--- Name: FUNCTION dl_chattr(datalink, dl_options); Type: COMMENT; Schema: datalink; Owner: postgres
---
-
-COMMENT ON FUNCTION dl_chattr(datalink, dl_options) IS 'Set attributes for datalink';
-
-
---
 -- Name: dl_chattr(name, name, name, dl_options); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_chattr(name, name, name, dl_options) RETURNS boolean
+CREATE FUNCTION dl_chattr(dl_schema_name name, dl_table_name name, dl_columnt_name name, dl_options dl_options) RETURNS dl_options
     LANGUAGE plpgsql
     AS $_$declare
  my_id regclass;
@@ -393,28 +465,85 @@ begin
  end if; 
 
  update dl_optionsdef 
- set attr = $4
+ set control_options = $4
  where schema_name=$1
    and table_name=$2
    and column_name=$3;
 
  if not found then
-  insert into dl_optionsdef (schema_name,table_name,column_name,attr)
+  insert into dl_optionsdef (schema_name,table_name,column_name,control_options)
   values ($1,$2,$3,$4);
  end if;
 
- return true;
+ return $4;
 end;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_chattr(name, name, name, dl_options) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_chattr(dl_schema_name name, dl_table_name name, dl_columnt_name name, dl_options dl_options) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_chattr(name, name, name, dl_options); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_chattr(dl_schema_name name, dl_table_name name, dl_columnt_name name, dl_options dl_options); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_chattr(name, name, name, dl_options) IS 'Set attributes for datalink column';
+COMMENT ON FUNCTION dl_chattr(dl_schema_name name, dl_table_name name, dl_columnt_name name, dl_options dl_options) IS 'Set attributes for datalink column';
+
+
+--
+-- Name: dl_class_adminable(regclass); Type: FUNCTION; Schema: datalink; Owner: wdbi
+--
+
+CREATE FUNCTION dl_class_adminable(my_class regclass) RETURNS boolean
+    LANGUAGE sql
+    AS $_$
+select exists (select *
+ from pg_class c
+join pg_user u on (u.usesysid=c.relowner)
+where c.oid=$1
+  and (u.usename = "current_user"() or 
+  EXISTS ( SELECT pg_user.usesuper
+           FROM pg_user
+          WHERE pg_user.usename = "current_user"() AND pg_user.usesuper)
+  )
+)
+$_$;
+
+
+ALTER FUNCTION datalink.dl_class_adminable(my_class regclass) OWNER TO wdbi;
+
+--
+-- Name: dl_event_trigger(); Type: FUNCTION; Schema: datalink; Owner: wdbi
+--
+
+CREATE FUNCTION dl_event_trigger() RETURNS event_trigger
+    LANGUAGE plpgsql
+    AS $$
+declare
+ obj record;
+begin
+ if tg_tag in ('CREATE TABLE','ALTER TABLE') 
+ then
+--   RAISE NOTICE 'DATALINK % trigger: %', tg_event, tg_tag;
+
+   for obj in select * from datalink.dl_sql_advice()
+   where advice_type = 'TRIGGER' and not valid
+   loop
+     RAISE NOTICE 'DATALINK DDL: %',obj.sql_advice;
+     execute obj.sql_advice;
+   end loop;
+ end if;
+
+end
+$$;
+
+
+ALTER FUNCTION datalink.dl_event_trigger() OWNER TO wdbi;
+
+--
+-- Name: FUNCTION dl_event_trigger(); Type: COMMENT; Schema: datalink; Owner: wdbi
+--
+
+COMMENT ON FUNCTION dl_event_trigger() IS 'This trigger rebuilds all appropriate triggers on tables with datalinks';
 
 
 --
@@ -422,6 +551,29 @@ COMMENT ON FUNCTION dl_chattr(name, name, name, dl_options) IS 'Set attributes f
 --
 
 CREATE FUNCTION dl_get(datalink) RETURNS text
+    LANGUAGE plpgsql
+    AS $_$
+declare r record;
+begin
+ r := datalink.curl_get($1);
+ if r.ok then
+   return r.response_body;
+ end if;
+
+ raise exception 'Referenced URL does not exit' 
+            using errcode = 'HW003', detail = $1;
+
+end
+$_$;
+
+
+ALTER FUNCTION datalink.dl_get(datalink) OWNER TO postgres;
+
+--
+-- Name: dl_get(dl_id); Type: FUNCTION; Schema: datalink; Owner: postgres
+--
+
+CREATE FUNCTION dl_get(dl_id) RETURNS text
     LANGUAGE plperlu
     AS $_$use LWP::Simple; 
 use Data::Dumper;
@@ -451,7 +603,7 @@ return undef;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_get(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_get(dl_id) OWNER TO postgres;
 
 --
 -- Name: dl_id(); Type: FUNCTION; Schema: datalink; Owner: postgres
@@ -595,10 +747,60 @@ $_$;
 ALTER FUNCTION datalink.dl_inode(file_path) OWNER TO postgres;
 
 --
--- Name: dl_linker_backup(datalink, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_link_control_options(dl_options); Type: FUNCTION; Schema: datalink; Owner: wdbi
 --
 
-CREATE FUNCTION dl_linker_backup(datalink, my_options text) RETURNS boolean
+CREATE FUNCTION dl_link_control_options(dl_options) RETURNS dl_link_control_options
+    LANGUAGE plpgsql IMMUTABLE
+    AS $_$
+declare 
+ r datalink.dl_link_control_options;
+begin
+ r.link_control := case $1 & 15
+		   when 0 then 'NO'
+                   when 1 then 'FILE'
+                   end;
+ r.integrity    := case ($1 >> 4) & 15
+		   when 0 then 'NONE'
+                   when 1 then 'SELECTIVE'
+                   when 2 then 'ALL'
+                   end;
+                   
+ r.read_access  := case ($1 >> 8) & 15
+		   when 0 then 'FS'
+                   when 1 then 'DB'
+                   end;
+
+ r.write_access := case ($1 >> 12) & 15
+		   when 0 then 'FS'
+                   when 1 then 'BLOCKED'
+		   when 2 then 'ADMIN NOT REQUIRING TOKEN FOR UPDATE'
+                   when 3 then 'ADMIN REQUIRING TOKEN FOR UPDATE'
+                   end;
+
+ r.recovery     := case ($1 >> 16) & 15
+		   when 0 then 'NO'
+                   when 1 then 'YES'
+                   end;
+
+ r.on_unlink    := case ($1 >> 20) & 15
+		   when 0 then 'NONE'
+                   when 1 then 'RESTORE'
+                   when 2 then 'DELETE'
+                   end;
+
+ return r;
+end
+$_$;
+
+
+ALTER FUNCTION datalink.dl_link_control_options(dl_options) OWNER TO wdbi;
+
+--
+-- Name: dl_linker_backup(dl_id, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+--
+
+CREATE FUNCTION dl_linker_backup(dl_id, my_options text) RETURNS boolean
     LANGUAGE plperlu
     AS $_$my ($datalink,$lockp)=@_;
 
@@ -612,13 +814,13 @@ return $lockp;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_linker_backup(datalink, my_options text) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_backup(dl_id, my_options text) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_linker_backup(datalink, my_options text); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_linker_backup(dl_id, my_options text); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_linker_backup(datalink, my_options text) IS 'Datalinker - backup file';
+COMMENT ON FUNCTION dl_linker_backup(dl_id, my_options text) IS 'Datalinker - backup file';
 
 
 --
@@ -645,10 +847,10 @@ COMMENT ON FUNCTION dl_linker_checkpoint() IS 'Datalinker - wait for datalinker 
 
 
 --
--- Name: dl_linker_delete(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_linker_delete(dl_id); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_linker_delete(datalink) RETURNS boolean
+CREATE FUNCTION dl_linker_delete(dl_id) RETURNS boolean
     LANGUAGE plperlu
     AS $_$my ($datalink,$lockp)=@_;
 
@@ -662,42 +864,42 @@ return $lockp;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_linker_delete(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_delete(dl_id) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_linker_delete(datalink); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_linker_delete(dl_id); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_linker_delete(datalink) IS 'Datalinker - delete file';
+COMMENT ON FUNCTION dl_linker_delete(dl_id) IS 'Datalinker - delete file';
 
 
 --
--- Name: dl_linker_get(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_linker_get(dl_id); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_linker_get(datalink) RETURNS text
+CREATE FUNCTION dl_linker_get(dl_id) RETURNS text
     LANGUAGE plperlu
     AS $$$$;
 
 
-ALTER FUNCTION datalink.dl_linker_get(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_get(dl_id) OWNER TO postgres;
 
 --
--- Name: dl_linker_put(datalink, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_linker_put(dl_id, text); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_linker_put(datalink, text) RETURNS boolean
+CREATE FUNCTION dl_linker_put(dl_id, text) RETURNS boolean
     LANGUAGE plperlu
     AS $$$$;
 
 
-ALTER FUNCTION datalink.dl_linker_put(datalink, text) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_put(dl_id, text) OWNER TO postgres;
 
 --
--- Name: dl_linker_replace(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_linker_replace(dl_id); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_linker_replace(datalink) RETURNS boolean
+CREATE FUNCTION dl_linker_replace(dl_id) RETURNS boolean
     LANGUAGE plperlu
     AS $_$my ($datalink,$lockp)=@_;
 
@@ -711,20 +913,20 @@ return $lockp;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_linker_replace(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_replace(dl_id) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_linker_replace(datalink); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_linker_replace(dl_id); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_linker_replace(datalink) IS 'Datalinker - replace file with a link to another file';
+COMMENT ON FUNCTION dl_linker_replace(dl_id) IS 'Datalinker - replace file with a link to another file';
 
 
 --
--- Name: dl_linker_sqlr(datalink, dl_read_access); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_linker_sqlr(dl_id, dl_read_access); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_linker_sqlr(datalink, dl_read_access) RETURNS boolean
+CREATE FUNCTION dl_linker_sqlr(dl_id, dl_read_access) RETURNS boolean
     LANGUAGE plperlu
     AS $_$my ($datalink,$lockp)=@_;
 
@@ -748,20 +950,20 @@ return $lockp;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_linker_sqlr(datalink, dl_read_access) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_sqlr(dl_id, dl_read_access) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_linker_sqlr(datalink, dl_read_access); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_linker_sqlr(dl_id, dl_read_access); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_linker_sqlr(datalink, dl_read_access) IS 'Datalinker - set FS/DB read permissions';
+COMMENT ON FUNCTION dl_linker_sqlr(dl_id, dl_read_access) IS 'Datalinker - set FS/DB read permissions';
 
 
 --
--- Name: dl_linker_sqlw(datalink, dl_write_access); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_linker_sqlw(dl_id, dl_write_access); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_linker_sqlw(datalink, dl_write_access) RETURNS boolean
+CREATE FUNCTION dl_linker_sqlw(dl_id, dl_write_access) RETURNS boolean
     LANGUAGE plperlu
     AS $_$my ($datalink,$lockp)=@_;
 
@@ -775,24 +977,26 @@ return $lockp;
 $_$;
 
 
-ALTER FUNCTION datalink.dl_linker_sqlw(datalink, dl_write_access) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_linker_sqlw(dl_id, dl_write_access) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_linker_sqlw(datalink, dl_write_access); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_linker_sqlw(dl_id, dl_write_access); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_linker_sqlw(datalink, dl_write_access) IS 'Datalinker - set FS/DB write permissions';
+COMMENT ON FUNCTION dl_linker_sqlw(dl_id, dl_write_access) IS 'Datalinker - set FS/DB write permissions';
 
 
 --
 -- Name: dl_options(dl_link_control, dl_integrity, dl_read_access, dl_write_access, dl_recovery, dl_on_unlink); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_options(dl_link_control, dl_integrity, dl_read_access, dl_write_access, dl_recovery, dl_on_unlink) RETURNS dl_options
-    LANGUAGE plperl
+CREATE FUNCTION dl_options(link_control dl_link_control DEFAULT 'NO'::dl_link_control, integrity dl_integrity DEFAULT 'NONE'::dl_integrity, read_access dl_read_access DEFAULT 'FS'::dl_read_access, write_access dl_write_access DEFAULT 'FS'::dl_write_access, recovery dl_recovery DEFAULT 'NO'::dl_recovery, on_unlink dl_on_unlink DEFAULT 'NONE'::dl_on_unlink) RETURNS dl_options
+    LANGUAGE plperl IMMUTABLE
     AS $_$
  my @o=@_;
  my $o=0;
+
+ elog(NOTICE,$o[0]);
 
  if($o[5]eq'RESTORE') { $o += 1; }
  elsif($o[5]eq'DELETE') { $o += 2; }
@@ -819,7 +1023,7 @@ CREATE FUNCTION dl_options(dl_link_control, dl_integrity, dl_read_access, dl_wri
 $_$;
 
 
-ALTER FUNCTION datalink.dl_options(dl_link_control, dl_integrity, dl_read_access, dl_write_access, dl_recovery, dl_on_unlink) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_options(link_control dl_link_control, integrity dl_integrity, read_access dl_read_access, write_access dl_write_access, recovery dl_recovery, on_unlink dl_on_unlink) OWNER TO postgres;
 
 --
 -- Name: dl_options_add(dl_options, dl_options); Type: FUNCTION; Schema: datalink; Owner: postgres
@@ -946,6 +1150,86 @@ COMMENT ON FUNCTION dl_options_valid(text) IS 'Validator for datalink attributes
 
 
 --
+-- Name: dl_part(datalink, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+--
+
+CREATE FUNCTION dl_part(datalink, part text) RETURNS text
+    LANGUAGE plperlu
+    AS $_X$
+use URI; 
+use File::Basename;
+
+my $u=URI->new($_[0]); 
+my $part=$_[1]; lc($part);
+if($part eq 'scheme') { return $u->scheme(); }
+if($part eq 'path') { return $u->path(); }
+if($part eq 'basename') { return basename($u->path()); }
+if($part eq 'dirname') { return dirname($u->path()); }
+if($part eq 'authority') { return $u->authority(); }
+if($part eq 'path_query') { return $u->path_query(); }
+if($part eq 'query_form') { return $u->query_form(); }
+if($part eq 'query_keywords') { return $u->query_keywords(); }
+if($part eq 'userinfo') { return $u->userinfo(); }
+if($part eq 'host') { return $u->host(); }
+if($part eq 'domain') { my $d = $u->host(); $d=~s|^www\.||; return $d; }
+if($part eq 'port') { return $u->port(); }
+if($part eq 'host_port') { return $u->host_port(); }
+if($part eq 'query') { return $u->query(); }
+if($part eq 'fragment') { return $u->fragment(); }
+if($part eq 'token') { return $u->fragment(); }
+if($part eq 'canonical') { return $u->canonical(); }
+elog(ERROR,"Unknown part '$path'.");
+$_X$;
+
+
+ALTER FUNCTION datalink.dl_part(datalink, part text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION dl_part(datalink, part text); Type: COMMENT; Schema: datalink; Owner: postgres
+--
+
+COMMENT ON FUNCTION dl_part(datalink, part text) IS 'extract parts of DATALINK URI';
+
+
+--
+-- Name: dl_part_set(datalink, text, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+--
+
+CREATE FUNCTION dl_part_set(url datalink, part text, val text) RETURNS datalink
+    LANGUAGE plperlu
+    AS $_X$
+use URI; 
+my $u=URI->new($_[0]); 
+my $part=$_[1]; lc($part);
+my $v=$_[2]; 
+if($part eq 'scheme') { $u->scheme($v); }
+elsif($part eq 'path') {  $u->path($v); }
+elsif($part eq 'authority') {  $u->authority($v); }
+elsif($part eq 'path_query') {  $u->path_query($v); }
+elsif($part eq 'query_form') {  $u->query_form($v); }
+elsif($part eq 'query_keywords') {  $u->query_keywords($v); }
+elsif($part eq 'userinfo') {  $u->userinfo($v); }
+elsif($part eq 'host') {  $u->host($v); }
+elsif($part eq 'port') {  $u->port($v); }
+elsif($part eq 'host_port') {  $u->host_port($v); }
+elsif($part eq 'query') {  $u->query($v); }
+elsif($part eq 'fragment') {  $u->fragment($v); }
+elsif($part eq 'token') {  $u->fragment($v); }
+else { elog(ERROR,"Unknown part '$path'."); }
+return $u->as_string;
+$_X$;
+
+
+ALTER FUNCTION datalink.dl_part_set(url datalink, part text, val text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION dl_part_set(url datalink, part text, val text); Type: COMMENT; Schema: datalink; Owner: postgres
+--
+
+COMMENT ON FUNCTION dl_part_set(url datalink, part text, val text) IS 'set part of DATALINK URI';
+
+
+--
 -- Name: dl_prefix_id(url); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
@@ -986,17 +1270,17 @@ COMMENT ON FUNCTION dl_purge() IS 'Purge unreferenced datalinks';
 
 
 --
--- Name: dl_put(datalink, text); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_put(dl_id, text); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_put(datalink, text) RETURNS integer
+CREATE FUNCTION dl_put(dl_id, text) RETURNS integer
     LANGUAGE plperlu
     AS $$elog(error,"Not implemented!");
 
 $$;
 
 
-ALTER FUNCTION datalink.dl_put(datalink, text) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_put(dl_id, text) OWNER TO postgres;
 
 --
 -- Name: dl_reconcile(); Type: FUNCTION; Schema: datalink; Owner: postgres
@@ -1028,40 +1312,45 @@ $$;
 ALTER FUNCTION datalink.dl_reconcile() OWNER TO postgres;
 
 --
--- Name: dl_ref(datalink, dl_options); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_ref(datalink, dl_options, regclass, name); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_ref(datalink, dl_options) RETURNS integer
+CREATE FUNCTION dl_ref(link datalink, link_options dl_options, regclass regclass, column_name name) RETURNS datalink
     LANGUAGE plpgsql
-    AS $_$begin 
- update datalink.dl_url
- set 
-  ref=coalesce(ref,0)+1
- where id=$1;
-
- return 1;
+    AS $_$
+declare
+ uri text;
+ token datalink.dl_token;
+ lco datalink.dl_link_control_options;
+ r record;
+begin 
+ raise notice 'DATALINK: dl_ref(''%'',%,%,%)',$1,$2,$3,$4;
+ uri := $1;
+ if link_options > 0 then
+  lco = datalink.dl_link_control_options(link_options);
+  if lco.link_control = 'FILE' then
+    -- check if reference exists
+    r := datalink.curl_head(link);
+    if not r.ok then
+      raise exception 'Referenced file does not exit' 
+            using errcode = 'HW003', detail = link;
+    end if;
+  end if;
+  
+  uri := datalink.dlpreviouscopy(uri,0);
+ end if;
+ return uri;
 end$_$;
 
 
-ALTER FUNCTION datalink.dl_ref(datalink, dl_options) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_ref(link datalink, link_options dl_options, regclass regclass, column_name name) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_ref(datalink, dl_options); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_ref(link datalink, link_options dl_options, regclass regclass, column_name name); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_ref(datalink, dl_options) IS 'Trigger - reference a datalink';
+COMMENT ON FUNCTION dl_ref(link datalink, link_options dl_options, regclass regclass, column_name name) IS 'Trigger - reference a datalink';
 
-
---
--- Name: dl_setattr(datalink, name, text); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dl_setattr(datalink, name, text) RETURNS integer
-    LANGUAGE plpgsql
-    AS $$begin end$$;
-
-
-ALTER FUNCTION datalink.dl_setattr(datalink, name, text) OWNER TO postgres;
 
 --
 -- Name: dl_space; Type: TABLE; Schema: datalink; Owner: datalink; Tablespace: 
@@ -1091,6 +1380,30 @@ $_$;
 ALTER FUNCTION datalink.dl_space(file_path) OWNER TO postgres;
 
 --
+-- Name: dl_sql_advice(); Type: FUNCTION; Schema: datalink; Owner: wdbi
+--
+
+CREATE FUNCTION dl_sql_advice(OUT advice_type text, OUT owner name, OUT regclass regclass, OUT valid boolean, OUT identifier name, OUT links bigint, OUT sql_advice text) RETURNS SETOF record
+    LANGUAGE sql
+    AS $$
+SELECT 'TRIGGER'::text AS advice_type,
+    owner,
+    regclass AS regclass,
+    not (tgname is null or links = 0) as valid,
+    tgname AS identifier,
+    links,
+    COALESCE('DROP TRIGGER IF EXISTS ' || quote_ident(tgname) || ' ON ' || regclass::text || '; ', '') ||
+    case when links>0 then
+     COALESCE(('CREATE TRIGGER "~RI_DatalinkTrigger" BEFORE INSERT OR UPDATE OR DELETE ON '::text || regclass::text) || ' FOR EACH ROW EXECUTE PROCEDURE datalink.dl_trigger()'::text, ''::text) 
+    else ''
+    end AS sql_advice
+   FROM datalink.dl_triggers
+$$;
+
+
+ALTER FUNCTION datalink.dl_sql_advice(OUT advice_type text, OUT owner name, OUT regclass regclass, OUT valid boolean, OUT identifier name, OUT links bigint, OUT sql_advice text) OWNER TO wdbi;
+
+--
 -- Name: dl_token(); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
@@ -1104,11 +1417,11 @@ $$;
 ALTER FUNCTION datalink.dl_token() OWNER TO postgres;
 
 --
--- Name: dl_trigger(); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_trigger(); Type: FUNCTION; Schema: datalink; Owner: datalink
 --
 
 CREATE FUNCTION dl_trigger() RETURNS trigger
-    LANGUAGE plperlu
+    LANGUAGE plperlu SECURITY DEFINER
     AS $_X$;
 =pod
 
@@ -1123,21 +1436,26 @@ It should be enabled on all tables which have datalink columns.
 
  my %d;    # datalink changes
 
+ my $qref;
+ my $qunref;
+ 
  for my $i (@{$rv->{rows}}) {
   my $c = $i->{column_name};
   next if !$c;
-  if($_TD->{event} eq 'INSERT' || $_TD->{event} eq 'UPDATE') {
-   if(defined($_TD->{new}{$c})) { 
-    elog(NOTICE,"dl_ref($_TD->{new}{$c},$i->{control_options})");
-    spi_exec_query("SELECT datalink.dl_ref($_TD->{new}{$c},$i->{control_options})");
-    $d{$_TD->{new}{$c}}++;
-   }
-  }
   if($_TD->{event} eq 'DELETE' || $_TD->{event} eq 'UPDATE') {
    if(defined($_TD->{old}{$c})) { 
-    elog(NOTICE,"dl_unref($_TD->{old}{$c})");
-    spi_exec_query("SELECT datalink.dl_unref($_TD->{old}{$c})");
-    $d{$_TD->{old}{$c}}--; 
+#     elog(NOTICE,"dl_unref($_TD->{old}{$c})");
+     if(!$qunref) { $qunref=spi_prepare('SELECT datalink.dl_unref($1,$2,$3,$4)','datalink.datalink','datalink.dl_options','regclass','name'); }
+     spi_exec_prepared($qunref,$_TD->{old}{$c},$i->{control_options},$_TD->{relid},$c);
+#    $d{$_TD->{old}{$c}}--; 
+   }
+  }
+  if($_TD->{event} eq 'INSERT' || $_TD->{event} eq 'UPDATE') {
+   if(defined($_TD->{new}{$c})) { 
+#    elog(NOTICE,"dl_ref($_TD->{new}{$c},$i->{control_options})");
+    if(!$qref) { $qref = spi_prepare('SELECT datalink.dl_ref($1,$2,$3,$4)','datalink.datalink','datalink.dl_options','regclass','name'); }
+    spi_exec_prepared($qref,$_TD->{new}{$c},$i->{control_options},$_TD->{relid},$c);
+#    $d{$_TD->{new}{$c}}++;
    }
   }
  }
@@ -1147,66 +1465,29 @@ return "MODIFY";
 $_X$;
 
 
-ALTER FUNCTION datalink.dl_trigger() OWNER TO postgres;
+ALTER FUNCTION datalink.dl_trigger() OWNER TO datalink;
 
 --
--- Name: dl_unref(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dl_unref(datalink, dl_options, regclass, name); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dl_unref(datalink) RETURNS integer
+CREATE FUNCTION dl_unref(link datalink, link_options dl_options, regclass regclass, column_name name) RETURNS datalink
     LANGUAGE plpgsql
-    AS $_$begin 
- update datalink.dl_url
- set 
-  ref=ref-1
- where id=$1;
-
- return 1;
+    AS $_$
+begin
+ raise notice 'DATALINK: dl_unref(''%'',%,%,%)',$1,$2,$3,$4;
+ return $1;
 end$_$;
 
 
-ALTER FUNCTION datalink.dl_unref(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dl_unref(link datalink, link_options dl_options, regclass regclass, column_name name) OWNER TO postgres;
 
 --
--- Name: FUNCTION dl_unref(datalink); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dl_unref(link datalink, link_options dl_options, regclass regclass, column_name name); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dl_unref(datalink) IS 'Trigger - unreference a datalink';
+COMMENT ON FUNCTION dl_unref(link datalink, link_options dl_options, regclass regclass, column_name name) IS 'Trigger - unreference a datalink';
 
-
---
--- Name: dl_update_triggers(); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dl_update_triggers() RETURNS text
-    LANGUAGE plpgsql
-    AS $$declare
- my_sql text;
- r record;
- n integer;
-begin
- my_sql:=''; n:=0;
- for r in
-  select 
-      datalink.sql_identifier(c.schema_name,c.table_name) as sql_identifier,
-      t.trigger_name 
-    from dl_columns c left join datalink.triggers t on t.regclass=c.regclass 
-   where trigger_name='DL_RI_trigger' or trigger_name is null loop
-  if r.trigger_name is null then
-    my_sql:=my_sql||
-           'CREATE TRIGGER "DL_RI_trigger"'||
-           ' AFTER INSERT OR DELETE OR UPDATE ON '||r.sql_identifier||
-           ' FOR EACH ROW EXECUTE PROCEDURE datalink.dl_trigger();';
-    n:=n+1;
-  end if;
- end loop;
- if n>0 then execute my_sql; end if;
- return my_sql;
-end
-$$;
-
-
-ALTER FUNCTION datalink.dl_update_triggers() OWNER TO postgres;
 
 --
 -- Name: dl_url_init(); Type: FUNCTION; Schema: datalink; Owner: postgres
@@ -1296,85 +1577,98 @@ $_X$;
 ALTER FUNCTION datalink.dl_url_valid(text) OWNER TO postgres;
 
 --
--- Name: dlcomment(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dlcomment(dl_id); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlcomment(datalink) RETURNS text
+CREATE FUNCTION dlcomment(dl_id) RETURNS text
     LANGUAGE sql STRICT
     AS $_$select comment from datalink.dl_url where id=$1$_$;
 
 
-ALTER FUNCTION datalink.dlcomment(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dlcomment(dl_id) OWNER TO postgres;
 
 --
--- Name: FUNCTION dlcomment(datalink); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dlcomment(dl_id); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dlcomment(datalink) IS 'SQL/MED - returns the comment value, if it exists, from a DATALINK value';
+COMMENT ON FUNCTION dlcomment(dl_id) IS 'SQL/MED - returns the comment value, if it exists, from a DATALINK value';
 
 
 --
--- Name: dllinktype(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dllinktype(dl_id); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dllinktype(datalink) RETURNS text
+CREATE FUNCTION dllinktype(dl_id) RETURNS text
     LANGUAGE sql
     AS $_$select linktype::text from datalink.dl_url where id=$1$_$;
 
 
-ALTER FUNCTION datalink.dllinktype(datalink) OWNER TO postgres;
+ALTER FUNCTION datalink.dllinktype(dl_id) OWNER TO postgres;
 
 --
--- Name: FUNCTION dllinktype(datalink); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dllinktype(dl_id); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dllinktype(datalink) IS 'SQL/MED - returns the linktype value from a DATALINK value';
+COMMENT ON FUNCTION dllinktype(dl_id) IS 'SQL/MED - returns the linktype value from a DATALINK value';
 
 
 --
--- Name: dlnewcopy(url, integer); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dlnewcopy(text, integer); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlnewcopy(url, has_token integer) RETURNS datalink
-    LANGUAGE plpgsql
-    AS $_$declare
- id datalink.dl_id;
-begin
- insert into dl_url (url)
- values ($1);
- id:=dlpreviouscopy($1,$2);
- return id::datalink.datalink;
-end;
+CREATE FUNCTION dlnewcopy(uri text, has_token integer) RETURNS datalink
+    LANGUAGE plpgsql STRICT
+    AS $_$
+declare
+ token datalink.dl_token;
+begin 
+ uri := datalink.url_canonical($1);
+ if has_token > 0 then
+  token := datalink.dl_token();
+  uri := datalink.dl_part_set(uri,'token',token);
+ end if;
+ return uri;
+end
 $_$;
 
 
-ALTER FUNCTION datalink.dlnewcopy(url, has_token integer) OWNER TO postgres;
+ALTER FUNCTION datalink.dlnewcopy(uri text, has_token integer) OWNER TO postgres;
 
 --
--- Name: FUNCTION dlnewcopy(url, has_token integer); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dlnewcopy(uri text, has_token integer); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dlnewcopy(url, has_token integer) IS 'SQL/MED - returns a DATALINK value which has an attribute indicating that the referenced file has changed.';
+COMMENT ON FUNCTION dlnewcopy(uri text, has_token integer) IS 'returns a DATALINK value which has an attribute indicating that the referenced file has changed.';
 
 
 --
--- Name: dlpreviouscopy(url, integer); Type: FUNCTION; Schema: datalink; Owner: postgres
+-- Name: dlpreviouscopy(text, integer); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlpreviouscopy(url, has_token integer) RETURNS datalink
-    LANGUAGE sql
-    AS $_$select id::datalink.datalink from datalink.dl_url where url=datalink.url_canonical($1)
-
+CREATE FUNCTION dlpreviouscopy(uri text, has_token integer) RETURNS datalink
+    LANGUAGE plpgsql STRICT
+    AS $_$
+declare
+ token datalink.dl_token;
+begin 
+ uri := datalink.url_canonical($1);
+ if has_token > 0 then
+  token := datalink.dl_part(uri,'token');
+  if token is null then token := datalink.dl_token() ; end if;
+  uri := datalink.dl_part_set(uri,'token',token);
+ end if;
+ return uri;
+end
 $_$;
 
 
-ALTER FUNCTION datalink.dlpreviouscopy(url, has_token integer) OWNER TO postgres;
+ALTER FUNCTION datalink.dlpreviouscopy(uri text, has_token integer) OWNER TO postgres;
 
 --
--- Name: FUNCTION dlpreviouscopy(url, has_token integer); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dlpreviouscopy(uri text, has_token integer); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dlpreviouscopy(url, has_token integer) IS 'SQL/MED - returns a DATALINK value which has an attribute indicating that the previous version of the file should be restored.';
+COMMENT ON FUNCTION dlpreviouscopy(uri text, has_token integer) IS 'returns a DATALINK value which has an attribute indicating that the previous version of the file should be restored.';
 
 
 --
@@ -1383,9 +1677,9 @@ COMMENT ON FUNCTION dlpreviouscopy(url, has_token integer) IS 'SQL/MED - returns
 
 CREATE FUNCTION dlreplacecontent(target url, source url, comment text) RETURNS datalink
     LANGUAGE sql
-    AS $$select 1::datalink.datalink;
-
-$$;
+    AS $_$
+ select $1::datalink.datalink;
+$_$;
 
 
 ALTER FUNCTION datalink.dlreplacecontent(target url, source url, comment text) OWNER TO postgres;
@@ -1401,12 +1695,9 @@ COMMENT ON FUNCTION dlreplacecontent(target url, source url, comment text) IS 'S
 -- Name: dlurlcomplete(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlurlcomplete(datalink) RETURNS uri
-    LANGUAGE sql STRICT SECURITY DEFINER
-    AS $_$
-select url::datalink.uri 
-  from datalink.dl_url where id=$1
-$_$;
+CREATE FUNCTION dlurlcomplete(datalink) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $_$select $1::text$_$;
 
 
 ALTER FUNCTION datalink.dlurlcomplete(datalink) OWNER TO postgres;
@@ -1422,9 +1713,9 @@ COMMENT ON FUNCTION dlurlcomplete(datalink) IS 'SQL/MED - returns the data locat
 -- Name: dlurlcompleteonly(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlurlcompleteonly(datalink) RETURNS uri
+CREATE FUNCTION dlurlcompleteonly(datalink) RETURNS text
     LANGUAGE sql STRICT
-    AS $_$select datalink.dlurlcomplete($1)$_$;
+    AS $_$select datalink.dl_part_set($1,'token',null)$_$;
 
 
 ALTER FUNCTION datalink.dlurlcompleteonly(datalink) OWNER TO postgres;
@@ -1433,7 +1724,7 @@ ALTER FUNCTION datalink.dlurlcompleteonly(datalink) OWNER TO postgres;
 -- Name: dlurlcompletewrite(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlurlcompletewrite(datalink) RETURNS uri
+CREATE FUNCTION dlurlcompletewrite(datalink) RETURNS text
     LANGUAGE sql STRICT
     AS $_$select datalink.dlurlcomplete($1)$_$;
 
@@ -1445,40 +1736,23 @@ ALTER FUNCTION datalink.dlurlcompletewrite(datalink) OWNER TO postgres;
 --
 
 CREATE FUNCTION dlurlpath(datalink) RETURNS file_path
-    LANGUAGE sql
-    AS $_$select fpath::datalink.file_path from datalink.dl_url where id=$1$_$;
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $_$select datalink.dl_part($1,'path')::datalink.file_path$_$;
 
 
 ALTER FUNCTION datalink.dlurlpath(datalink) OWNER TO postgres;
 
 --
--- Name: FUNCTION dlurlpath(datalink); Type: COMMENT; Schema: datalink; Owner: postgres
---
-
-COMMENT ON FUNCTION dlurlpath(datalink) IS 'SQL/MED - returns the path and file name necessary to access a file within a given server from a DATALINK value with a linktype of URL';
-
-
---
--- Name: dlurlpath(uri); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dlurlpath(uri) RETURNS file_path
-    LANGUAGE sql STRICT
-    AS $_$
-select (base||substr(u.url,length(prefix)+1))::datalink.file_path
-from datalink.dl_url u join datalink.dl_prefix b on (u.url like b.prefix||'%')
-where u.url=$1$_$;
-
-
-ALTER FUNCTION datalink.dlurlpath(uri) OWNER TO postgres;
-
---
 -- Name: dlurlpathonly(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlurlpathonly(datalink) RETURNS url
-    LANGUAGE sql
-    AS $_$select url::datalink.url from datalink.dl_url where id=$1$_$;
+CREATE FUNCTION dlurlpathonly(datalink) RETURNS file_path
+    LANGUAGE sql STRICT
+    AS $_$
+select (base||substr($1,length(prefix)+1))::datalink.file_path
+from datalink.dl_prefix b 
+where ($1 like b.prefix||'%')
+$_$;
 
 
 ALTER FUNCTION datalink.dlurlpathonly(datalink) OWNER TO postgres;
@@ -1494,10 +1768,9 @@ COMMENT ON FUNCTION dlurlpathonly(datalink) IS 'SQL/MED - returns the path and f
 -- Name: dlurlpathwrite(datalink); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlurlpathwrite(datalink) RETURNS url
-    LANGUAGE sql
-    AS $_$select url::datalink.url from datalink.dl_url where id=$1
-$_$;
+CREATE FUNCTION dlurlpathwrite(datalink) RETURNS file_path
+    LANGUAGE sql STRICT
+    AS $_$select datalink.dlurlpathonly($1)$_$;
 
 
 ALTER FUNCTION datalink.dlurlpathwrite(datalink) OWNER TO postgres;
@@ -1514,9 +1787,8 @@ COMMENT ON FUNCTION dlurlpathwrite(datalink) IS 'SQL/MED - returns the path and 
 --
 
 CREATE FUNCTION dlurlscheme(datalink) RETURNS text
-    LANGUAGE sql
-    AS $_$select upper(datalink.url_part('scheme',url)) as scheme
-from datalink.dl_url where id=$1$_$;
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $_$select upper(datalink.dl_part($1,'scheme')) as scheme$_$;
 
 
 ALTER FUNCTION datalink.dlurlscheme(datalink) OWNER TO postgres;
@@ -1533,8 +1805,8 @@ COMMENT ON FUNCTION dlurlscheme(datalink) IS 'SQL/MED - returns the scheme from 
 --
 
 CREATE FUNCTION dlurlserver(datalink) RETURNS text
-    LANGUAGE sql
-    AS $_$select datalink.url_part('host',url) from datalink.dl_url where id=$1$_$;
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $_$select datalink.dl_part($1,'host')$_$;
 
 
 ALTER FUNCTION datalink.dlurlserver(datalink) OWNER TO postgres;
@@ -1547,111 +1819,31 @@ COMMENT ON FUNCTION dlurlserver(datalink) IS 'SQL/MED - returns the file server 
 
 
 --
--- Name: dlvalue(url); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dlvalue(url) RETURNS datalink
-    LANGUAGE plpgsql
-    AS $_$begin
- return datalink.dlvalue($1,'URL',NULL);
-end
-$_$;
-
-
-ALTER FUNCTION datalink.dlvalue(url) OWNER TO postgres;
-
---
--- Name: FUNCTION dlvalue(url); Type: COMMENT; Schema: datalink; Owner: postgres
---
-
-COMMENT ON FUNCTION dlvalue(url) IS 'SQL/MED - return DATALINK value of type URL';
-
-
---
--- Name: dlvalue(text); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dlvalue(text) RETURNS datalink
-    LANGUAGE plpgsql
-    AS $_$begin
- return datalink.dlvalue($1,'URL',NULL);
-end
-$_$;
-
-
-ALTER FUNCTION datalink.dlvalue(text) OWNER TO postgres;
-
---
--- Name: dlvalue(text, name); Type: FUNCTION; Schema: datalink; Owner: postgres
---
-
-CREATE FUNCTION dlvalue(text, name) RETURNS datalink
-    LANGUAGE plpgsql
-    AS $_$begin
- return datalink.dlvalue($1,$2,NULL);
-end
-$_$;
-
-
-ALTER FUNCTION datalink.dlvalue(text, name) OWNER TO postgres;
-
---
--- Name: FUNCTION dlvalue(text, name); Type: COMMENT; Schema: datalink; Owner: postgres
---
-
-COMMENT ON FUNCTION dlvalue(text, name) IS 'SQL/MED - return DATALINK value of any type';
-
-
---
 -- Name: dlvalue(text, name, text); Type: FUNCTION; Schema: datalink; Owner: postgres
 --
 
-CREATE FUNCTION dlvalue(text, name, text) RETURNS datalink
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $_$declare
- my_address alias for $1;
- my_linktype alias for $2;
- my_comment alias for $3;
-
- my_id datalink.dl_id;
- my_url datalink.uri;
- my_fpath datalink.file_path;
+CREATE FUNCTION dlvalue(uri text, linktype name DEFAULT 'URL'::name, comment text DEFAULT NULL::text) RETURNS datalink
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
 begin
- if my_linktype not in ('URL','FS') then
+ if linktype not in ('URL','FS') then
   raise exception 'DL0102:linktype must be URL or FS';
  end if;
-
- if my_linktype = 'URL' then
-  my_url := datalink.url_canonical(my_address);
-  my_fpath := datalink.dlurlpath(my_address);
-  select into my_id
-   id from datalink.dl_url where url=my_url;
+ if linktype = 'FS' then
+  uri := 'file://'||uri;
  end if;
-
- if my_linktype = 'FS' then
-  my_fpath := my_address;
-  select into my_id
-   id from datalink.dl_url where fpath=my_fpath;
- end if;
-
- if not found then
-   my_id := datalink.dl_id();
-   insert into datalink.dl_url (id,url,cons,linktype,comment)
-   values (my_id,my_url,'v',my_linktype,my_comment);
- end if;
-
- return my_id;
+ return uri;
 end
-$_$;
+$$;
 
 
-ALTER FUNCTION datalink.dlvalue(text, name, text) OWNER TO postgres;
+ALTER FUNCTION datalink.dlvalue(uri text, linktype name, comment text) OWNER TO postgres;
 
 --
--- Name: FUNCTION dlvalue(text, name, text); Type: COMMENT; Schema: datalink; Owner: postgres
+-- Name: FUNCTION dlvalue(uri text, linktype name, comment text); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION dlvalue(text, name, text) IS 'SQL/MED - return DATALINK value of any type with comment';
+COMMENT ON FUNCTION dlvalue(uri text, linktype name, comment text) IS 'SQL/MED - return DATALINK value of type and comment';
 
 
 --
@@ -1997,7 +2189,8 @@ CREATE FUNCTION url_canonical(url) RETURNS url
 my $u=URI->new($_[0]); 
 if($u->query() eq '') { $u->query(undef); }
 if($u->fragment() eq '') { $u->fragment(undef); }
-return $u->canonical;
+my $c = $u->canonical;
+return "$c";
 $_X$;
 
 
@@ -2063,7 +2256,7 @@ ALTER FUNCTION datalink.url_part(text, url) OWNER TO postgres;
 -- Name: FUNCTION url_part(text, url); Type: COMMENT; Schema: datalink; Owner: postgres
 --
 
-COMMENT ON FUNCTION url_part(text, url) IS 'extract part of URL';
+COMMENT ON FUNCTION url_part(text, url) IS 'extract part of URL #DEPRECATED use dl_part()';
 
 
 --
@@ -2088,11 +2281,12 @@ COMMENT ON TABLE dl_optionsdef IS 'Current link control options; this should rea
 
 
 --
--- Name: dl_columns; Type: VIEW; Schema: datalink; Owner: postgres
+-- Name: dl_columns; Type: VIEW; Schema: datalink; Owner: datalink
 --
 
 CREATE VIEW dl_columns AS
- SELECT s.nspname AS schema_name,
+ SELECT u.usename AS table_owner,
+    s.nspname AS schema_name,
     c.relname AS table_name,
     a.attname AS column_name,
     COALESCE((ad.control_options)::integer, 0) AS control_options,
@@ -2111,68 +2305,22 @@ CREATE VIEW dl_columns AS
         CASE
             WHEN a.attnotnull THEN ' NOT NULL'::text
             ELSE ''::text
-        END) AS definition
-   FROM ((((((pg_class c
-     JOIN pg_namespace s ON ((s.oid = c.relnamespace)))
-     JOIN pg_attribute a ON ((c.oid = a.attrelid)))
-     LEFT JOIN pg_attrdef def ON (((c.oid = def.adrelid) AND (a.attnum = def.adnum))))
-     LEFT JOIN pg_type t ON ((t.oid = a.atttypid)))
-     JOIN pg_namespace tn ON ((tn.oid = t.typnamespace)))
-     LEFT JOIN dl_optionsdef ad ON ((((ad.schema_name = s.nspname) AND (ad.table_name = c.relname)) AND (ad.column_name = a.attname))))
-  WHERE ((((((c.relkind = 'r'::"char") AND (a.attnum > 0)) AND (t.typname = 'datalink'::name)) AND (NOT a.attisdropped)) AND has_table_privilege(c.oid, 'select'::text)) AND has_schema_privilege(s.oid, 'usage'::text))
-  ORDER BY s.nspname, c.relname, a.attnum;
-
-
-ALTER TABLE dl_columns OWNER TO postgres;
-
---
--- Name: dl_columns_stats; Type: VIEW; Schema: datalink; Owner: datalink
---
-
-CREATE VIEW dl_columns_stats AS
- SELECT s.nspname AS schema_name,
-    c.relname AS table_name,
-    a.attname AS column_name,
-    COALESCE((ad.control_options)::integer, 0) AS control_options,
-    a.attnotnull AS not_null,
-    col_description(c.oid, (a.attnum)::integer) AS comment,
-    a.attislocal AS islocal,
-    a.attnum AS ord,
-    ((sql_identifier(s.nspname, c.relname) || '.'::text) || quote_ident((a.attname)::text)) AS sql_identifier,
-    st.stanullfrac AS "NullF",
-        CASE
-            WHEN (st.stadistinct < (0)::double precision) THEN (- st.stadistinct)
-            ELSE NULL::real
-        END AS "DistF",
-    (
-        CASE
-            WHEN (st.stadistinct >= (0)::double precision) THEN st.stadistinct
-            ELSE NULL::real
-        END)::integer AS "DistN",
-    c.oid AS regclass,
-    ((((((quote_ident((a.attname)::text) || ' '::text) || format_type(t.oid, NULL::integer)) ||
-        CASE
-            WHEN ((a.atttypmod - 4) > 65536) THEN (((('('::text || ((a.atttypmod - 4) / 65536)) || ','::text) || ((a.atttypmod - 4) % 65536)) || ')'::text)
-            WHEN ((a.atttypmod - 4) > 0) THEN (('('::text || (a.atttypmod - 4)) || ')'::text)
-            ELSE ''::text
-        END) || ' '::text) || dl_options_sql((COALESCE((ad.control_options)::integer, 0))::dl_options)) ||
-        CASE
-            WHEN a.attnotnull THEN ' NOT NULL'::text
-            ELSE ''::text
-        END) AS definition
+        END) AS definition,
+    a.atttypmod,
+    c.oid AS relid
    FROM (((((((pg_class c
      JOIN pg_namespace s ON ((s.oid = c.relnamespace)))
      JOIN pg_attribute a ON ((c.oid = a.attrelid)))
+     JOIN pg_user u ON ((c.relowner = u.usesysid)))
      LEFT JOIN pg_attrdef def ON (((c.oid = def.adrelid) AND (a.attnum = def.adnum))))
      LEFT JOIN pg_type t ON ((t.oid = a.atttypid)))
      JOIN pg_namespace tn ON ((tn.oid = t.typnamespace)))
-     LEFT JOIN pg_statistic st ON (((st.starelid = c.oid) AND (st.staattnum = a.attnum))))
      LEFT JOIN dl_optionsdef ad ON ((((ad.schema_name = s.nspname) AND (ad.table_name = c.relname)) AND (ad.column_name = a.attname))))
-  WHERE ((((((c.relkind = 'r'::"char") AND (a.attnum > 0)) AND (t.typname = 'datalink'::name)) AND (NOT a.attisdropped)) AND has_table_privilege(c.oid, 'select'::text)) AND has_schema_privilege(s.oid, 'usage'::text))
+  WHERE (((((c.relkind = 'r'::"char") AND (a.attnum > 0)) AND (tn.nspname = 'datalink'::name)) AND (t.typname = 'datalink'::name)) AND (NOT a.attisdropped))
   ORDER BY s.nspname, c.relname, a.attnum;
 
 
-ALTER TABLE dl_columns_stats OWNER TO datalink;
+ALTER TABLE dl_columns OWNER TO datalink;
 
 --
 -- Name: dl_id_seq; Type: SEQUENCE; Schema: datalink; Owner: datalink
@@ -2217,37 +2365,54 @@ COMMENT ON COLUMN dl_prefix.name IS 'optional name';
 
 
 --
--- Name: dl_sql_advice; Type: VIEW; Schema: datalink; Owner: datalink
+-- Name: dl_sql_advice; Type: VIEW; Schema: datalink; Owner: ziga
 --
 
 CREATE VIEW dl_sql_advice AS
- SELECT 'TRIGGER'::text AS advice_type,
-    quote_ident((t.tgname)::text) AS sql_identifier,
-    (('CREATE CONSTRAINT TRIGGER "DL_RI_trigger"    
-  AFTER INSERT OR UPDATE OR DELETE   
-  ON '::text || dl_c.sql_identifier) || '   
-  FOR EACH ROW    
-  EXECUTE PROCEDURE datalink.dl_trigger()   
- '::text) AS sql_advice
-   FROM (( SELECT DISTINCT dl_columns.schema_name,
-            dl_columns.table_name,
-            ((quote_ident((dl_columns.schema_name)::text) || '.'::text) || quote_ident((dl_columns.table_name)::text)) AS sql_identifier,
-            dl_columns.regclass
-           FROM dl_columns_stats dl_columns
-          ORDER BY dl_columns.schema_name, dl_columns.table_name, ((quote_ident((dl_columns.schema_name)::text) || '.'::text) || quote_ident((dl_columns.table_name)::text)), dl_columns.regclass) dl_c
-     LEFT JOIN pg_trigger t ON (((t.tgrelid = dl_c.regclass) AND (t.tgname = 'DL_RI_trigger'::name))))
-UNION
- SELECT 'CONSTRAINT'::text AS advice_type,
-    quote_ident((c.conname)::text) AS sql_identifier,
-    (((((('ALTER TABLE '::text || quote_ident((dl_columns.schema_name)::text)) || '.'::text) || quote_ident((dl_columns.table_name)::text)) || '   
-  ADD CONSTRAINT "DL_RI_constraint"    
-  FOREIGN KEY ('::text) || quote_ident((dl_columns.column_name)::text)) || ')   
-  REFERENCES datalink.dl_url(id)'::text) AS sql_advice
-   FROM (dl_columns_stats dl_columns
-     LEFT JOIN pg_constraint c ON (((c.conrelid = dl_columns.regclass) AND (c.conname = 'DL_RI_constraint'::name))));
+ SELECT dl_sql_advice.advice_type,
+    dl_sql_advice.owner,
+    dl_sql_advice.regclass,
+    dl_sql_advice.valid,
+    dl_sql_advice.identifier,
+    dl_sql_advice.links,
+    dl_sql_advice.sql_advice
+   FROM dl_sql_advice() dl_sql_advice(advice_type, owner, regclass, valid, identifier, links, sql_advice);
 
 
-ALTER TABLE dl_sql_advice OWNER TO datalink;
+ALTER TABLE dl_sql_advice OWNER TO ziga;
+
+--
+-- Name: dl_triggers; Type: VIEW; Schema: datalink; Owner: wdbi
+--
+
+CREATE VIEW dl_triggers AS
+ WITH triggers AS (
+         SELECT c0_1.oid,
+            t0.tgname
+           FROM (pg_trigger t0
+             JOIN pg_class c0_1 ON ((t0.tgrelid = c0_1.oid)))
+          WHERE ((t0.tgname = '~RI_DatalinkTrigger'::name) AND dl_class_adminable((c0_1.oid)::regclass))
+        ), classes AS (
+         SELECT dl_columns.relid,
+            count(*) AS count,
+            max(dl_columns.control_options) AS mco
+           FROM dl_columns dl_columns
+          WHERE dl_class_adminable((dl_columns.relid)::regclass)
+          GROUP BY dl_columns.relid
+        )
+ SELECT u.usename AS owner,
+    (COALESCE(c.relid, t.oid))::regclass AS regclass,
+    COALESCE(c.count, (0)::bigint) AS links,
+    c.mco,
+    t.tgname
+   FROM (((triggers t
+     FULL JOIN classes c ON ((t.oid = c.relid)))
+     JOIN pg_class c0 ON ((c0.oid = COALESCE(c.relid, t.oid))))
+     JOIN pg_user u ON ((u.usesysid = c0.relowner)))
+  ORDER BY ((COALESCE(c.relid, t.oid))::regclass)::text;
+
+
+ALTER TABLE dl_triggers OWNER TO wdbi;
 
 --
 -- Name: dl_url; Type: TABLE; Schema: datalink; Owner: datalink; Tablespace: 
@@ -2401,16 +2566,55 @@ CREATE TABLE file_xlog (
 ALTER TABLE file_xlog OWNER TO datalink;
 
 --
--- Name: sample_datalinks; Type: TABLE; Schema: datalink; Owner: datalink; Tablespace: 
+-- Name: sample_datalinks; Type: TABLE; Schema: datalink; Owner: ziga; Tablespace: 
 --
 
 CREATE TABLE sample_datalinks (
-    url text NOT NULL,
+    id integer NOT NULL,
     link datalink
 );
 
 
-ALTER TABLE sample_datalinks OWNER TO datalink;
+ALTER TABLE sample_datalinks OWNER TO ziga;
+
+--
+-- Name: sample_datalinks_id_seq; Type: SEQUENCE; Schema: datalink; Owner: ziga
+--
+
+CREATE SEQUENCE sample_datalinks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE sample_datalinks_id_seq OWNER TO ziga;
+
+--
+-- Name: sample_datalinks_id_seq; Type: SEQUENCE OWNED BY; Schema: datalink; Owner: ziga
+--
+
+ALTER SEQUENCE sample_datalinks_id_seq OWNED BY sample_datalinks.id;
+
+
+--
+-- Name: sample_urls; Type: TABLE; Schema: datalink; Owner: ziga; Tablespace: 
+--
+
+CREATE TABLE sample_urls (
+    url text
+);
+
+
+ALTER TABLE sample_urls OWNER TO ziga;
+
+--
+-- Name: id; Type: DEFAULT; Schema: datalink; Owner: ziga
+--
+
+ALTER TABLE ONLY sample_datalinks ALTER COLUMN id SET DEFAULT nextval('sample_datalinks_id_seq'::regclass);
+
 
 --
 -- Name: dl_inode_base_id_key; Type: CONSTRAINT; Schema: datalink; Owner: datalink; Tablespace: 
@@ -2549,21 +2753,6 @@ ALTER TABLE ONLY file_xlog
 
 
 --
--- Name: sample_datalinks_pkey; Type: CONSTRAINT; Schema: datalink; Owner: datalink; Tablespace: 
---
-
-ALTER TABLE ONLY sample_datalinks
-    ADD CONSTRAINT sample_datalinks_pkey PRIMARY KEY (url);
-
-
---
--- Name: DL_RI_trigger; Type: TRIGGER; Schema: datalink; Owner: datalink
---
-
-CREATE CONSTRAINT TRIGGER "DL_RI_trigger" AFTER INSERT OR DELETE OR UPDATE ON sample_datalinks NOT DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE PROCEDURE dl_trigger();
-
-
---
 -- Name: DL_url_init; Type: TRIGGER; Schema: datalink; Owner: datalink
 --
 
@@ -2571,11 +2760,10 @@ CREATE TRIGGER "DL_url_init" BEFORE INSERT OR UPDATE ON dl_url FOR EACH ROW EXEC
 
 
 --
--- Name: DL_RI_constraint; Type: FK CONSTRAINT; Schema: datalink; Owner: datalink
+-- Name: ~RI_DatalinkTrigger; Type: TRIGGER; Schema: datalink; Owner: ziga
 --
 
-ALTER TABLE ONLY sample_datalinks
-    ADD CONSTRAINT "DL_RI_constraint" FOREIGN KEY (link) REFERENCES dl_url(id);
+CREATE TRIGGER "~RI_DatalinkTrigger" BEFORE INSERT OR DELETE OR UPDATE ON sample_datalinks FOR EACH ROW EXECUTE PROCEDURE dl_trigger();
 
 
 --
@@ -2619,6 +2807,14 @@ ALTER TABLE ONLY file_xlog
 
 
 --
+-- Name: datalink_event_trigger; Type: EVENT TRIGGER; Schema: -; Owner: wdbi
+--
+
+CREATE EVENT TRIGGER datalink_event_trigger ON ddl_command_end
+   EXECUTE PROCEDURE datalink.dl_event_trigger();
+
+
+--
 -- Name: datalink; Type: ACL; Schema: -; Owner: datalink
 --
 
@@ -2636,6 +2832,16 @@ REVOKE ALL ON FUNCTION dl_get(datalink) FROM PUBLIC;
 REVOKE ALL ON FUNCTION dl_get(datalink) FROM postgres;
 GRANT ALL ON FUNCTION dl_get(datalink) TO postgres;
 GRANT ALL ON FUNCTION dl_get(datalink) TO PUBLIC;
+
+
+--
+-- Name: dl_get(dl_id); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_get(dl_id) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_get(dl_id) FROM postgres;
+GRANT ALL ON FUNCTION dl_get(dl_id) TO postgres;
+GRANT ALL ON FUNCTION dl_get(dl_id) TO PUBLIC;
 
 
 --
@@ -2658,93 +2864,114 @@ GRANT ALL ON FUNCTION dl_inode(file_path) TO PUBLIC;
 
 
 --
--- Name: dl_linker_backup(datalink, text); Type: ACL; Schema: datalink; Owner: postgres
+-- Name: dl_linker_backup(dl_id, text); Type: ACL; Schema: datalink; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION dl_linker_backup(datalink, my_options text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_backup(datalink, my_options text) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_backup(datalink, my_options text) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_backup(datalink, my_options text) TO PUBLIC;
-
-
---
--- Name: dl_linker_delete(datalink); Type: ACL; Schema: datalink; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION dl_linker_delete(datalink) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_delete(datalink) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_delete(datalink) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_delete(datalink) TO PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_backup(dl_id, my_options text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_backup(dl_id, my_options text) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_backup(dl_id, my_options text) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_backup(dl_id, my_options text) TO PUBLIC;
 
 
 --
--- Name: dl_linker_get(datalink); Type: ACL; Schema: datalink; Owner: postgres
+-- Name: dl_linker_delete(dl_id); Type: ACL; Schema: datalink; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION dl_linker_get(datalink) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_get(datalink) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_get(datalink) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_get(datalink) TO PUBLIC;
-
-
---
--- Name: dl_linker_put(datalink, text); Type: ACL; Schema: datalink; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION dl_linker_put(datalink, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_put(datalink, text) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_put(datalink, text) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_put(datalink, text) TO PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_delete(dl_id) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_delete(dl_id) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_delete(dl_id) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_delete(dl_id) TO PUBLIC;
 
 
 --
--- Name: dl_linker_replace(datalink); Type: ACL; Schema: datalink; Owner: postgres
+-- Name: dl_linker_get(dl_id); Type: ACL; Schema: datalink; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION dl_linker_replace(datalink) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_replace(datalink) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_replace(datalink) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_replace(datalink) TO PUBLIC;
-
-
---
--- Name: dl_linker_sqlr(datalink, dl_read_access); Type: ACL; Schema: datalink; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION dl_linker_sqlr(datalink, dl_read_access) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_sqlr(datalink, dl_read_access) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_sqlr(datalink, dl_read_access) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_sqlr(datalink, dl_read_access) TO PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_get(dl_id) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_get(dl_id) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_get(dl_id) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_get(dl_id) TO PUBLIC;
 
 
 --
--- Name: dl_linker_sqlw(datalink, dl_write_access); Type: ACL; Schema: datalink; Owner: postgres
+-- Name: dl_linker_put(dl_id, text); Type: ACL; Schema: datalink; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION dl_linker_sqlw(datalink, dl_write_access) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_linker_sqlw(datalink, dl_write_access) FROM postgres;
-GRANT ALL ON FUNCTION dl_linker_sqlw(datalink, dl_write_access) TO postgres;
-GRANT ALL ON FUNCTION dl_linker_sqlw(datalink, dl_write_access) TO PUBLIC;
-
-
---
--- Name: dl_put(datalink, text); Type: ACL; Schema: datalink; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION dl_put(datalink, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_put(datalink, text) FROM postgres;
-GRANT ALL ON FUNCTION dl_put(datalink, text) TO postgres;
-GRANT ALL ON FUNCTION dl_put(datalink, text) TO PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_put(dl_id, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_put(dl_id, text) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_put(dl_id, text) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_put(dl_id, text) TO PUBLIC;
 
 
 --
--- Name: dl_trigger(); Type: ACL; Schema: datalink; Owner: postgres
+-- Name: dl_linker_replace(dl_id); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_linker_replace(dl_id) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_replace(dl_id) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_replace(dl_id) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_replace(dl_id) TO PUBLIC;
+
+
+--
+-- Name: dl_linker_sqlr(dl_id, dl_read_access); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_linker_sqlr(dl_id, dl_read_access) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_sqlr(dl_id, dl_read_access) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_sqlr(dl_id, dl_read_access) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_sqlr(dl_id, dl_read_access) TO PUBLIC;
+
+
+--
+-- Name: dl_linker_sqlw(dl_id, dl_write_access); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_linker_sqlw(dl_id, dl_write_access) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_linker_sqlw(dl_id, dl_write_access) FROM postgres;
+GRANT ALL ON FUNCTION dl_linker_sqlw(dl_id, dl_write_access) TO postgres;
+GRANT ALL ON FUNCTION dl_linker_sqlw(dl_id, dl_write_access) TO PUBLIC;
+
+
+--
+-- Name: dl_part(datalink, text); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_part(datalink, part text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_part(datalink, part text) FROM postgres;
+GRANT ALL ON FUNCTION dl_part(datalink, part text) TO postgres;
+GRANT ALL ON FUNCTION dl_part(datalink, part text) TO PUBLIC;
+
+
+--
+-- Name: dl_part_set(datalink, text, text); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_part_set(url datalink, part text, val text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_part_set(url datalink, part text, val text) FROM postgres;
+GRANT ALL ON FUNCTION dl_part_set(url datalink, part text, val text) TO postgres;
+GRANT ALL ON FUNCTION dl_part_set(url datalink, part text, val text) TO PUBLIC;
+
+
+--
+-- Name: dl_put(dl_id, text); Type: ACL; Schema: datalink; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION dl_put(dl_id, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dl_put(dl_id, text) FROM postgres;
+GRANT ALL ON FUNCTION dl_put(dl_id, text) TO postgres;
+GRANT ALL ON FUNCTION dl_put(dl_id, text) TO PUBLIC;
+
+
+--
+-- Name: dl_trigger(); Type: ACL; Schema: datalink; Owner: datalink
 --
 
 REVOKE ALL ON FUNCTION dl_trigger() FROM PUBLIC;
-REVOKE ALL ON FUNCTION dl_trigger() FROM postgres;
-GRANT ALL ON FUNCTION dl_trigger() TO postgres;
+REVOKE ALL ON FUNCTION dl_trigger() FROM datalink;
+GRANT ALL ON FUNCTION dl_trigger() TO datalink;
 GRANT ALL ON FUNCTION dl_trigger() TO PUBLIC;
+GRANT ALL ON FUNCTION dl_trigger() TO postgres;
 
 
 --
@@ -2838,6 +3065,26 @@ GRANT ALL ON FUNCTION url_part(text, url) TO PUBLIC;
 
 
 --
+-- Name: dl_columns; Type: ACL; Schema: datalink; Owner: datalink
+--
+
+REVOKE ALL ON TABLE dl_columns FROM PUBLIC;
+REVOKE ALL ON TABLE dl_columns FROM datalink;
+GRANT ALL ON TABLE dl_columns TO datalink;
+GRANT SELECT ON TABLE dl_columns TO PUBLIC;
+
+
+--
+-- Name: dl_triggers; Type: ACL; Schema: datalink; Owner: wdbi
+--
+
+REVOKE ALL ON TABLE dl_triggers FROM PUBLIC;
+REVOKE ALL ON TABLE dl_triggers FROM wdbi;
+GRANT ALL ON TABLE dl_triggers TO wdbi;
+GRANT SELECT ON TABLE dl_triggers TO PUBLIC;
+
+
+--
 -- Name: dl_url; Type: ACL; Schema: datalink; Owner: datalink
 --
 
@@ -2853,16 +3100,6 @@ GRANT ALL ON TABLE dl_url TO datalink;
 REVOKE ALL ON TABLE file_media FROM PUBLIC;
 REVOKE ALL ON TABLE file_media FROM datalink;
 GRANT ALL ON TABLE file_media TO datalink;
-
-
---
--- Name: sample_datalinks; Type: ACL; Schema: datalink; Owner: datalink
---
-
-REVOKE ALL ON TABLE sample_datalinks FROM PUBLIC;
-REVOKE ALL ON TABLE sample_datalinks FROM datalink;
-GRANT ALL ON TABLE sample_datalinks TO datalink;
-GRANT SELECT ON TABLE sample_datalinks TO PUBLIC;
 
 
 --
