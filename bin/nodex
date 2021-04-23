@@ -5,6 +5,15 @@
 
 var fs = require('fs');
 
+////////////////////////////////////////////////////////////////////////////////
+// initialize options
+
+var opt = require('node-getopt').create([
+    ['p', 'port=ARG', 'server port'],
+	['n', 'nologin', 'no login reqired'],
+    ['h', 'help']
+]).bindHelp().parseSystem();
+
 var config = {
     limits: { 
 	post: "64mb",
@@ -14,6 +23,7 @@ var config = {
 	find: 5000
     },
     socketio: false,
+	nologin: opt.options.nologin || false
 //    conString : "postgres:"
 //  this gets configured later
 };
@@ -24,7 +34,7 @@ var config = {
 var express = require('express');
 var http = require('http');
 var https = require('https');
-var sys = require('sys');
+//var sys = require('sys');
 var child_process = require('child_process');
 var posix = require('posix');
 var mime = require('mime');
@@ -71,17 +81,19 @@ function nuJSON0(res,object) {
 // nu.js
 
 var auth = {
-   requireLogin: function(req, res, next) {
+	requireLogin: function(req, res, next) {
 //       console.log("AUTH?",req.cookies.sid);
-	var sid = req.cookies.sid;
-	if(sid && sid==process.env['NODEX_SID']) next();
-        else {
-	    res.writeHead(403, { 'Content-Type': 'text/plain' });
-	    res.end('Not logged in');
-	}
+		var sid = req.cookies.sid;
+		if(config.nologin) { next(); return; }
+		if(sid && sid==process.env['NODEX_SID']) next();
+    	else {
+	   		res.writeHead(403, { 'Content-Type': 'text/plain' });
+			console.log(config);
+			res.end('Not logged in');
+		}
     },
     genkey: function() {
-	return Date.now()*1000000+Math.floor(Math.random()*1000000);
+		return Date.now()*1000000+Math.floor(Math.random()*1000000);
     },
 };
 
@@ -99,8 +111,10 @@ app.use(express.json({limit: config.limits.post}));
 app.use(express.urlencoded({limit: config.limits.post}));
 app.use(express.bodyParser({limit: config.limits.post}));
 
+
 ////////////////////////////////////////////////////////////////////////////////
 // bios.js
+
 
 var children = {};
 
